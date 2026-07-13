@@ -26,7 +26,7 @@ Nimclip 采用 [Apache License 2.0](LICENSE)，并提供项目归属说明 [NOTI
 
 ## 数据与隐私
 
-- 历史、标签和设置通过 SwiftData 持久化到本机磁盘，并非仅保存在内存中；默认使用系统持久化存储。
+- 历史、标签和设置通过 SwiftData 持久化到本机 SQLite 数据库 `~/Library/Application Support/Cliplet.store`，并非仅保存在内存中；运行时还会有 SQLite 的 `-wal` 与 `-shm` 辅助文件。
 - 图片文件单独保存在用户 `Application Support/Cliplet/ClipboardImages` 目录。
 - Nimclip 不要求账户，也不会把剪贴板内容上传到远程服务。
 
