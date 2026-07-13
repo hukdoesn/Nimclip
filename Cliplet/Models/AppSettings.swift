@@ -1,0 +1,34 @@
+import Foundation
+import SwiftData
+
+@Model
+final class AppSettings {
+    @Attribute(.unique) var id: UUID
+    var historyLimit: Int
+    var retentionDays: Int
+    var hotKeyKeyCode: UInt32
+    var hotKeyModifiers: UInt32
+    var launchAtLogin: Bool
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        historyLimit: Int = 500,
+        retentionDays: Int = 30,
+        hotKeyKeyCode: UInt32 = 9,
+        hotKeyModifiers: UInt32 = 768,
+        launchAtLogin: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.historyLimit = historyLimit
+        self.retentionDays = retentionDays
+        self.hotKeyKeyCode = hotKeyKeyCode
+        self.hotKeyModifiers = hotKeyModifiers
+        self.launchAtLogin = launchAtLogin
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
