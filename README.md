@@ -11,9 +11,11 @@
   </p>
 </div>
 
-![Nimclip 在 Mac 上运行的产品示例](./docs/images/nimclip-hero.png)
+<p align="center">
+  <img src="./docs/images/nimclip-main-real.png" width="520" alt="真实运行中的 Nimclip 主窗口">
+</p>
 
-<p align="center"><sub>原生菜单栏体验 · 演示画面使用安全示例数据</sub></p>
+<p align="center"><sub>真实 Nimclip 窗口截图 · 仅使用隔离的安全演示数据 · 未截取其他应用</sub></p>
 
 Nimclip 安静地常驻在菜单栏。按下 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd>，刚刚复制过的文字、链接、代码和图片会立即回到眼前；搜索、选择，然后继续手头的工作。
 
@@ -34,17 +36,17 @@ Nimclip 安静地常驻在菜单栏。按下 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>
 - **来源可见**：记录来自哪个应用一目了然，找内容时不再只靠模糊记忆。
 - **收藏保护**：收藏项不参与普通的时间与条数清理，不会被自动淘汰。
 
-## 预览，不打断当前工作
+## 图片也能完整找回
 
-列表只负责快速浏览，完整内容留给独立预览窗口。按住 `Option` 后，预览会在记录旁边展开；即使文字很多，也可以把鼠标移入窗口滚动查看。
+图片记录会在列表中显示真实缩略图。打开预览后，可以在独立窗口中查看完整图片；文字记录同样支持按住 `Option` 展开，长内容可以滚动，鼠标也可以进入预览窗口继续操作。
 
-![Nimclip 完整内容预览](./docs/images/nimclip-preview.png)
+![真实运行中的 Nimclip 图片预览窗口](./docs/images/nimclip-image-preview-real.jpg)
 
 ## 浅色和深色，由你决定
 
 Nimclip 的外观独立于系统设置。你可以在设置页中选择始终浅色或始终深色，也可以直接在主窗口底部快速切换；选择会持久保存，下次打开仍保持不变。
 
-![Nimclip 浅色、深色与设置页面](./docs/images/nimclip-appearance.png)
+![真实运行中的 Nimclip 设置窗口](./docs/images/nimclip-settings-real.png)
 
 ## 数据与隐私
 
