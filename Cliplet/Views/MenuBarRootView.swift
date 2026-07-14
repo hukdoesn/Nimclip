@@ -117,11 +117,6 @@ struct MenuBarRootView: View {
 
                 Spacer()
 
-                NimclipAppearanceQuickToggle(
-                    mode: viewModel.appearanceMode,
-                    action: viewModel.toggleAppearance
-                )
-
                 Button(action: toggleCollectionMode) {
                     Image(systemName: "rectangle.stack.badge.plus")
                         .font(.system(size: 12, weight: .medium))
@@ -375,6 +370,15 @@ struct MenuBarRootView: View {
 
             Text("按住 ⌥ 预览")
                 .foregroundStyle(.tertiary)
+
+            Divider()
+                .frame(height: 14)
+                .padding(.horizontal, 1)
+
+            NimclipAppearanceFooterButton(
+                mode: viewModel.appearanceMode,
+                action: viewModel.toggleAppearance
+            )
 
             Button(action: viewModel.terminateApplication) {
                 Image(systemName: "power")
@@ -786,37 +790,31 @@ private struct TagManagementView: View {
     }
 }
 
-private struct NimclipAppearanceQuickToggle: View {
+private struct NimclipAppearanceFooterButton: View {
     let mode: NimclipAppearanceMode
     let action: () -> Void
 
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: action) {
-            ZStack(alignment: mode == .light ? .leading : .trailing) {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.primary.opacity(isHovered ? 0.105 : 0.065))
-
-                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                    .fill(Color.clipletSelection)
-                    .frame(width: 22, height: 22)
-                    .padding(2)
-
-                HStack(spacing: 0) {
-                    quickIcon("sun.max.fill", for: .light)
-                    quickIcon("moon.fill", for: .dark)
-                }
+        Button {
+            withAnimation(.easeInOut(duration: 0.16)) {
+                action()
             }
-            .frame(width: 48, height: 26)
-            .overlay {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(Color.clipletBorder.opacity(0.65), lineWidth: 0.5)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .animation(.easeInOut(duration: 0.16), value: mode)
+        } label: {
+            Image(systemName: mode == .dark ? "sun.max" : "moon")
+                .font(.system(size: 10.5, weight: .medium))
+                .frame(width: 24, height: 24)
+                .foregroundStyle(Color.secondary)
+                .background(
+                    Color.primary.opacity(isHovered ? 0.075 : 0),
+                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .contentTransition(.opacity)
+                .animation(.easeInOut(duration: 0.16), value: mode)
         }
-        .buttonStyle(NimclipAppearanceQuickToggleStyle())
+        .buttonStyle(NimclipAppearanceFooterButtonStyle())
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.1)) {
                 isHovered = hovering
@@ -826,27 +824,13 @@ private struct NimclipAppearanceQuickToggle: View {
         .accessibilityLabel("外观切换")
         .accessibilityValue("当前为\(mode.title)，点击切换到\(mode.opposite.title)")
     }
-
-    private func quickIcon(
-        _ systemName: String,
-        for iconMode: NimclipAppearanceMode
-    ) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 9.5, weight: .semibold))
-            .foregroundStyle(
-                mode == iconMode
-                    ? Color.clipletSelectionForeground
-                    : Color.secondary.opacity(0.72)
-            )
-            .frame(width: 24, height: 26)
-    }
 }
 
-private struct NimclipAppearanceQuickToggleStyle: ButtonStyle {
+private struct NimclipAppearanceFooterButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.965 : 1)
-            .opacity(configuration.isPressed ? 0.84 : 1)
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .opacity(configuration.isPressed ? 0.72 : 1)
             .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
