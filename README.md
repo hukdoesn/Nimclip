@@ -15,7 +15,7 @@
   <img src="./docs/images/nimclip-main-real.png" width="520" alt="真实运行中的 Nimclip 主窗口">
 </p>
 
-<p align="center"><sub>真实 Nimclip 窗口截图 · 仅使用隔离的安全演示数据 · 未截取其他应用</sub></p>
+<p align="center"><sub>Nimclip 主程序真实截图 · 使用本机实际剪贴板历史 · 未截取背景应用</sub></p>
 
 Nimclip 安静地常驻在菜单栏。按下 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd>，刚刚复制过的文字、链接、代码和图片会立即回到眼前；搜索、选择，然后继续手头的工作。
 
@@ -27,7 +27,7 @@ Nimclip 安静地常驻在菜单栏。按下 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>
 | --- | --- | --- |
 | 全局快捷键随时唤起，支持即时搜索 | 保留原始格式，也可以一键转为纯文本 | 收藏重要内容，创建标签分类 |
 | 按文字、链接、代码、图片快速筛选 | 多条内容按所选顺序合并复制或粘贴 | 默认保留 500 条、7 天，均可调整 |
-| 显示来源应用名称与图标 | 完全相同的内容与格式自动去重 | 浅色与深色独立控制，不跟随系统切换 |
+| 显示来源应用名称与图标 | 完全相同的内容与格式自动去重 | 首次随系统外观，也可固定浅色或深色 |
 
 - **原生而克制**：使用 SwiftUI 与 AppKit 构建，交互贴近 macOS，不做网页式仪表盘。
 - **完整预览**：按住 `Option` 悬停记录即可展开完整内容；长文本可以滚动，鼠标可以进入预览窗口继续操作。
@@ -40,7 +40,11 @@ Nimclip 安静地常驻在菜单栏。按下 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>
 
 图片记录会在列表中显示真实缩略图。打开预览后，可以在独立窗口中查看完整图片；文字记录同样支持按住 `Option` 展开，长内容可以滚动，鼠标也可以进入预览窗口继续操作。
 
-![真实运行中的 Nimclip 图片预览窗口](./docs/images/nimclip-image-preview-real.jpg)
+<p align="center">
+  <img src="./docs/images/nimclip-image-preview-real.png" width="780" alt="使用真实剪贴板图片的 Nimclip 图片预览窗口">
+</p>
+
+<p align="center"><sub>来自 Nimclip 实际历史记录的图片预览 · 来源图标与图片内容均为真实数据</sub></p>
 
 ## 浅色和深色，由你决定
 
