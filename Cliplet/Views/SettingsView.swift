@@ -36,12 +36,13 @@ struct SettingsView: View {
                     VStack(spacing: 0) {
                         pageHeader(
                             title: "通用",
-                            subtitle: "快捷键、历史记录与粘贴行为"
+                            subtitle: "外观、快捷键、历史记录与粘贴行为"
                         )
                         Divider()
 
                         ScrollView {
                             VStack(alignment: .leading, spacing: 18) {
+                                appearanceSection
                                 shortcutSection
                                 historySection
                                 generalSection
@@ -163,6 +164,16 @@ struct SettingsView: View {
         .background(Color.clipletCanvas)
     }
 
+    private var appearanceSection: some View {
+        ClipletSettingsSection(title: "外观") {
+            NimclipAppearancePicker(
+                selection: viewModel.appearanceMode,
+                onSelect: { viewModel.appearanceMode = $0 }
+            )
+            .padding(.vertical, 11)
+        }
+    }
+
     private var shortcutSection: some View {
         ClipletSettingsSection(title: "快捷键") {
             ClipletSettingsRow("显示 Nimclip", systemImage: "keyboard") {
@@ -245,6 +256,121 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+}
+
+private struct NimclipAppearancePicker: View {
+    let selection: NimclipAppearanceMode
+    let onSelect: (NimclipAppearanceMode) -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(NimclipAppearanceMode.allCases) { mode in
+                NimclipAppearanceOption(
+                    mode: mode,
+                    isSelected: selection == mode,
+                    action: { onSelect(mode) }
+                )
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("界面外观")
+    }
+}
+
+private struct NimclipAppearanceOption: View {
+    let mode: NimclipAppearanceMode
+    let isSelected: Bool
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(previewBackground)
+                    Image(systemName: mode.systemImage)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(previewForeground)
+                }
+                .frame(width: 34, height: 34)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(previewBorder, lineWidth: 0.7)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mode.title)
+                        .font(.system(size: 12.5, weight: .medium))
+                    Text(mode.detail)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 4)
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary.opacity(0.45))
+            }
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .background(
+                Color.primary.opacity(backgroundOpacity),
+                in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(
+                        Color.primary.opacity(isSelected ? 0.26 : 0.09),
+                        lineWidth: isSelected ? 1 : 0.6
+                    )
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+        .buttonStyle(NimclipAppearanceOptionButtonStyle())
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.1)) {
+                isHovered = hovering
+            }
+        }
+        .help("始终使用\(mode.title)外观")
+        .accessibilityLabel("\(mode.title)外观")
+        .accessibilityValue(isSelected ? "已选择" : "未选择")
+    }
+
+    private var backgroundOpacity: Double {
+        if isSelected { return 0.085 }
+        return isHovered ? 0.05 : 0.025
+    }
+
+    private var previewBackground: Color {
+        mode == .light
+            ? Color(nsColor: NSColor(calibratedWhite: 0.97, alpha: 1))
+            : Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1))
+    }
+
+    private var previewForeground: Color {
+        mode == .light
+            ? Color(nsColor: NSColor(calibratedWhite: 0.30, alpha: 1))
+            : Color(nsColor: NSColor(calibratedWhite: 0.86, alpha: 1))
+    }
+
+    private var previewBorder: Color {
+        mode == .light
+            ? Color.black.opacity(0.14)
+            : Color.white.opacity(0.18)
+    }
+}
+
+private struct NimclipAppearanceOptionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
 

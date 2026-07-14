@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 @main
@@ -32,6 +33,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             let store = try ClipboardStore()
             let viewModel = ClipletViewModel(store: store)
             self.viewModel = viewModel
+            applyAppearance(viewModel.appearanceMode, animated: false)
             configureStatusItem()
             configurePopover(with: viewModel)
 
@@ -40,6 +42,9 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             viewModel.onOpenSettingsRequested = { [weak self] in self?.showSettings() }
             viewModel.onStatusChanged = { [weak self] isPaused in
                 self?.updateStatusItem(isPaused: isPaused)
+            }
+            viewModel.onAppearanceChanged = { [weak self] mode in
+                self?.applyAppearance(mode, animated: true)
             }
 
             #if DEBUG
@@ -213,6 +218,43 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private func closePopover() {
         previewPanelController.hide()
         popover.performClose(nil)
+    }
+
+    private func applyAppearance(
+        _ mode: NimclipAppearanceMode,
+        animated: Bool
+    ) {
+        let appearance = mode.appearance
+        var views = [
+            popover.contentViewController?.view,
+            settingsWindow?.contentView,
+            previewPanelController.panel?.contentView
+        ].compactMap { $0 }
+        #if DEBUG
+        if let debugView = debugPreviewWindow?.contentView {
+            views.append(debugView)
+        }
+        #endif
+
+        if animated {
+            for view in views {
+                view.wantsLayer = true
+                let transition = CATransition()
+                transition.type = .fade
+                transition.duration = 0.18
+                transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                view.layer?.add(transition, forKey: "nimclip.appearance")
+            }
+        }
+
+        NSApplication.shared.appearance = appearance
+        popover.contentViewController?.view.appearance = appearance
+        popover.contentViewController?.view.window?.appearance = appearance
+        settingsWindow?.appearance = appearance
+        previewPanelController.applyAppearance(appearance)
+        #if DEBUG
+        debugPreviewWindow?.appearance = appearance
+        #endif
     }
 
     private func makeMenuRootView(with viewModel: ClipletViewModel) -> MenuBarRootView {

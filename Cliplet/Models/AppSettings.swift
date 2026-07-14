@@ -13,6 +13,7 @@ final class AppSettings {
     var hotKeyKeyCode: UInt32
     var hotKeyModifiers: UInt32
     var launchAtLogin: Bool
+    var appearanceModeRawValue: String = "dark"
     var createdAt: Date
     var updatedAt: Date
 
@@ -23,6 +24,7 @@ final class AppSettings {
         hotKeyKeyCode: UInt32 = 9,
         hotKeyModifiers: UInt32 = 768,
         launchAtLogin: Bool = false,
+        appearanceMode: NimclipAppearanceMode = .defaultMode,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -32,6 +34,7 @@ final class AppSettings {
         self.hotKeyKeyCode = hotKeyKeyCode
         self.hotKeyModifiers = hotKeyModifiers
         self.launchAtLogin = launchAtLogin
+        self.appearanceModeRawValue = appearanceMode.rawValue
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

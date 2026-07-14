@@ -82,6 +82,10 @@ final class ClipletPreviewPanelController {
         panel?.orderOut(nil)
     }
 
+    func applyAppearance(_ appearance: NSAppearance) {
+        panel?.appearance = appearance
+    }
+
     func requestHide() {
         guard !isPointerInsidePreview else { return }
         pendingHideTask?.cancel()

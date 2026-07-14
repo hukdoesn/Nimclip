@@ -13,6 +13,10 @@ final class ClipboardStoreTests: XCTestCase {
 
         XCTAssertEqual(fixture.store.settings.historyLimit, 500)
         XCTAssertEqual(fixture.store.settings.retentionDays, 7)
+        XCTAssertEqual(
+            fixture.store.settings.appearanceModeRawValue,
+            NimclipAppearanceMode.dark.rawValue
+        )
 
         let original = try fixture.store.ingestText(
             "Nimclip",
@@ -227,13 +231,43 @@ final class ClipboardStoreTests: XCTestCase {
         let fixture = try makeStore()
         defer { fixture.cleanup() }
 
-        try fixture.store.updateSettings(historyLimit: 123, retentionDays: 42)
+        try fixture.store.updateSettings(
+            historyLimit: 123,
+            retentionDays: 42,
+            appearanceMode: .light
+        )
         XCTAssertEqual(fixture.store.settings.historyLimit, 123)
         XCTAssertEqual(fixture.store.settings.retentionDays, 42)
+        XCTAssertEqual(
+            fixture.store.settings.appearanceModeRawValue,
+            NimclipAppearanceMode.light.rawValue
+        )
 
         try fixture.store.updateSettings(historyLimit: 1, retentionDays: 999)
         XCTAssertEqual(fixture.store.settings.historyLimit, ClipboardStore.minimumHistoryLimit)
         XCTAssertEqual(fixture.store.settings.retentionDays, ClipboardStore.maximumRetentionDays)
+    }
+
+    func testAppearanceModePersistsWhenStoreIsReopened() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipletAppearanceTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeURL = directory.appendingPathComponent("appearance.store")
+        do {
+            let store = try makeDiskStore(storeURL: storeURL, directory: directory)
+            try store.updateSettings(appearanceMode: .light)
+        }
+
+        let reopenedStore = try makeDiskStore(storeURL: storeURL, directory: directory)
+        XCTAssertEqual(
+            reopenedStore.settings.appearanceModeRawValue,
+            NimclipAppearanceMode.light.rawValue
+        )
     }
 
     func testUntouchedLegacyDefaultMigratesWithoutOverwritingAUserChoice() throws {

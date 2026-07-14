@@ -39,6 +39,7 @@ final class ClipletViewModel {
     var onDismissRequested: (() -> Void)?
     var onOpenSettingsRequested: (() -> Void)?
     var onStatusChanged: ((Bool) -> Void)?
+    var onAppearanceChanged: ((NimclipAppearanceMode) -> Void)?
 
     private let store: ClipboardStore
     private let monitor: ClipboardMonitor
@@ -134,6 +135,30 @@ final class ClipletViewModel {
                 revision += 1
             }
         }
+    }
+
+    var appearanceMode: NimclipAppearanceMode {
+        get {
+            _ = revision
+            return NimclipAppearanceMode(
+                rawValue: store.settings.appearanceModeRawValue
+            ) ?? .defaultMode
+        }
+        set {
+            guard newValue != appearanceMode else { return }
+            do {
+                try store.updateSettings(appearanceMode: newValue)
+                revision += 1
+                onAppearanceChanged?(newValue)
+                showToast("已切换为\(newValue.title)外观")
+            } catch {
+                showToast(error.localizedDescription)
+            }
+        }
+    }
+
+    func toggleAppearance() {
+        appearanceMode = appearanceMode.opposite
     }
 
     var hotKeyDisplay: String {

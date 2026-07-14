@@ -19,6 +19,9 @@ final class ClipletRenderingTests: XCTestCase {
         fixture.viewModel.dismissToast()
 
         for appearanceName in [NSAppearance.Name.aqua, .darkAqua] {
+            fixture.viewModel.appearanceMode = appearanceName == .darkAqua ? .dark : .light
+            fixture.viewModel.dismissToast()
+
             let menuData = try render(
                 MenuBarRootView(viewModel: fixture.viewModel),
                 size: NSSize(width: 440, height: 600),

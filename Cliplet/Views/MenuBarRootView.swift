@@ -117,6 +117,11 @@ struct MenuBarRootView: View {
 
                 Spacer()
 
+                NimclipAppearanceQuickToggle(
+                    mode: viewModel.appearanceMode,
+                    action: viewModel.toggleAppearance
+                )
+
                 Button(action: toggleCollectionMode) {
                     Image(systemName: "rectangle.stack.badge.plus")
                         .font(.system(size: 12, weight: .medium))
@@ -778,6 +783,71 @@ private struct TagManagementView: View {
         guard !name.isEmpty else { return }
         viewModel.renameTag(tag, to: name)
         editingTagID = nil
+    }
+}
+
+private struct NimclipAppearanceQuickToggle: View {
+    let mode: NimclipAppearanceMode
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: mode == .light ? .leading : .trailing) {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.primary.opacity(isHovered ? 0.105 : 0.065))
+
+                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                    .fill(Color.clipletSelection)
+                    .frame(width: 22, height: 22)
+                    .padding(2)
+
+                HStack(spacing: 0) {
+                    quickIcon("sun.max.fill", for: .light)
+                    quickIcon("moon.fill", for: .dark)
+                }
+            }
+            .frame(width: 48, height: 26)
+            .overlay {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(Color.clipletBorder.opacity(0.65), lineWidth: 0.5)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .animation(.easeInOut(duration: 0.16), value: mode)
+        }
+        .buttonStyle(NimclipAppearanceQuickToggleStyle())
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.1)) {
+                isHovered = hovering
+            }
+        }
+        .help("切换到\(mode.opposite.title)外观")
+        .accessibilityLabel("外观切换")
+        .accessibilityValue("当前为\(mode.title)，点击切换到\(mode.opposite.title)")
+    }
+
+    private func quickIcon(
+        _ systemName: String,
+        for iconMode: NimclipAppearanceMode
+    ) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 9.5, weight: .semibold))
+            .foregroundStyle(
+                mode == iconMode
+                    ? Color.clipletSelectionForeground
+                    : Color.secondary.opacity(0.72)
+            )
+            .frame(width: 24, height: 26)
+    }
+}
+
+private struct NimclipAppearanceQuickToggleStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.965 : 1)
+            .opacity(configuration.isPressed ? 0.84 : 1)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
 

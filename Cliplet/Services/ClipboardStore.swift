@@ -378,8 +378,11 @@ final class ClipboardStore: ObservableObject {
         retentionDays: Int? = nil,
         hotKeyKeyCode: UInt32? = nil,
         hotKeyModifiers: UInt32? = nil,
-        launchAtLogin: Bool? = nil
+        launchAtLogin: Bool? = nil,
+        appearanceMode: NimclipAppearanceMode? = nil
     ) throws {
+        let shouldEnforceRetention = historyLimit != nil || retentionDays != nil
+
         if let historyLimit {
             settings.historyLimit = min(
                 max(historyLimit, Self.minimumHistoryLimit),
@@ -401,10 +404,13 @@ final class ClipboardStore: ObservableObject {
         if let launchAtLogin {
             settings.launchAtLogin = launchAtLogin
         }
-        try saveSettings()
+        if let appearanceMode {
+            settings.appearanceModeRawValue = appearanceMode.rawValue
+        }
+        try saveSettings(enforcingRetention: shouldEnforceRetention)
     }
 
-    func saveSettings() throws {
+    func saveSettings(enforcingRetention: Bool = true) throws {
         settings.historyLimit = min(
             max(settings.historyLimit, Self.minimumHistoryLimit),
             Self.maximumHistoryLimit
@@ -416,7 +422,9 @@ final class ClipboardStore: ObservableObject {
         settings.updatedAt = now()
         do {
             try modelContext.save()
-            try enforceRetention()
+            if enforcingRetention {
+                try enforceRetention()
+            }
         } catch {
             throw report(error)
         }

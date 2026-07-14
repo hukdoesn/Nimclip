@@ -29,6 +29,14 @@ final class ClipletPreviewPanelTests: XCTestCase {
         XCTAssertEqual(panel?.styleMask.contains(.nonactivatingPanel), true)
         XCTAssertEqual(panel?.isVisible, true)
 
+        if let darkAppearance = NSAppearance(named: .darkAqua) {
+            controller.applyAppearance(darkAppearance)
+            XCTAssertEqual(
+                panel?.appearance?.bestMatch(from: [.aqua, .darkAqua]),
+                .darkAqua
+            )
+        }
+
         let firstContentController = panel?.contentViewController
         let secondItem = ClipboardItem(
             kind: .text,
