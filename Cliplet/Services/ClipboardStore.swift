@@ -61,6 +61,7 @@ final class ClipboardStore: ObservableObject {
         modelContainer: ModelContainer? = nil,
         fileManager: FileManager = .default,
         imagesDirectory: URL? = nil,
+        initialAppearanceMode: NimclipAppearanceMode = .currentSystemMode,
         now: @escaping () -> Date = Date.init
     ) throws {
         let container: ModelContainer
@@ -83,18 +84,33 @@ final class ClipboardStore: ObservableObject {
             sortBy: [SortDescriptor(\AppSettings.createdAt)]
         )
         let savedSettings = try context.fetch(settingsDescriptor).first
-        let resolvedSettings = savedSettings ?? AppSettings()
+        let resolvedSettings = savedSettings
+            ?? AppSettings(appearanceMode: initialAppearanceMode)
         if savedSettings == nil {
             context.insert(resolvedSettings)
             try context.save()
-        } else if resolvedSettings.historyLimit == AppSettings.defaultHistoryLimit,
-                  resolvedSettings.retentionDays == AppSettings.legacyDefaultRetentionDays,
-                  resolvedSettings.updatedAt.timeIntervalSince(resolvedSettings.createdAt).magnitude < 1 {
-            // Move untouched installs from the former 30-day default to the new default.
-            // A settings record that the user has edited keeps its chosen value.
-            resolvedSettings.retentionDays = AppSettings.defaultRetentionDays
-            resolvedSettings.updatedAt = now()
-            try context.save()
+        } else {
+            var shouldSaveSettings = false
+
+            if !resolvedSettings.hasExplicitAppearanceSelection,
+               resolvedSettings.appearanceModeRawValue != initialAppearanceMode.rawValue {
+                resolvedSettings.appearanceModeRawValue = initialAppearanceMode.rawValue
+                shouldSaveSettings = true
+            }
+
+            if resolvedSettings.historyLimit == AppSettings.defaultHistoryLimit,
+               resolvedSettings.retentionDays == AppSettings.legacyDefaultRetentionDays,
+               resolvedSettings.updatedAt.timeIntervalSince(resolvedSettings.createdAt).magnitude < 1 {
+                // Move untouched installs from the former 30-day default to the new default.
+                // A settings record that the user has edited keeps its chosen value.
+                resolvedSettings.retentionDays = AppSettings.defaultRetentionDays
+                shouldSaveSettings = true
+            }
+
+            if shouldSaveSettings {
+                resolvedSettings.updatedAt = now()
+                try context.save()
+            }
         }
 
         let resolvedImagesDirectory: URL
@@ -406,6 +422,7 @@ final class ClipboardStore: ObservableObject {
         }
         if let appearanceMode {
             settings.appearanceModeRawValue = appearanceMode.rawValue
+            settings.hasExplicitAppearanceSelection = true
         }
         try saveSettings(enforcingRetention: shouldEnforceRetention)
     }

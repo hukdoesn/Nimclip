@@ -17,6 +17,7 @@ final class ClipboardStoreTests: XCTestCase {
             fixture.store.settings.appearanceModeRawValue,
             NimclipAppearanceMode.dark.rawValue
         )
+        XCTAssertFalse(fixture.store.settings.hasExplicitAppearanceSelection)
 
         let original = try fixture.store.ingestText(
             "Nimclip",
@@ -34,6 +35,58 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertEqual(fixture.store.items.count, 1)
         XCTAssertEqual(duplicate.sourceAppName, "Second")
         XCTAssertEqual(duplicate.updatedAt, now)
+    }
+
+    func testSystemAppearanceResolutionUsesTheCurrentMacAppearance() throws {
+        XCTAssertEqual(
+            NimclipAppearanceMode.resolvedSystemMode(
+                from: try XCTUnwrap(NSAppearance(named: .aqua))
+            ),
+            .light
+        )
+        XCTAssertEqual(
+            NimclipAppearanceMode.resolvedSystemMode(
+                from: try XCTUnwrap(NSAppearance(named: .darkAqua))
+            ),
+            .dark
+        )
+    }
+
+    func testUnselectedAppearanceTracksStartupSystemUntilUserChooses() throws {
+        let unselected = AppSettings(
+            appearanceMode: .dark,
+            hasExplicitAppearanceSelection: false
+        )
+        let followsSystem = try makeStore(
+            preloadedSettings: unselected,
+            initialAppearanceMode: .light
+        )
+        defer { followsSystem.cleanup() }
+
+        XCTAssertEqual(
+            followsSystem.store.settings.appearanceModeRawValue,
+            NimclipAppearanceMode.light.rawValue
+        )
+        XCTAssertFalse(followsSystem.store.settings.hasExplicitAppearanceSelection)
+
+        try followsSystem.store.updateSettings(appearanceMode: .dark)
+        XCTAssertTrue(followsSystem.store.settings.hasExplicitAppearanceSelection)
+
+        let explicit = AppSettings(
+            appearanceMode: .dark,
+            hasExplicitAppearanceSelection: true
+        )
+        let keepsChoice = try makeStore(
+            preloadedSettings: explicit,
+            initialAppearanceMode: .light
+        )
+        defer { keepsChoice.cleanup() }
+
+        XCTAssertEqual(
+            keepsChoice.store.settings.appearanceModeRawValue,
+            NimclipAppearanceMode.dark.rawValue
+        )
+        XCTAssertTrue(keepsChoice.store.settings.hasExplicitAppearanceSelection)
     }
 
     func testSamePlainTextWithDifferentFormattingCreatesDistinctHistoryItems() throws {
@@ -242,6 +295,7 @@ final class ClipboardStoreTests: XCTestCase {
             fixture.store.settings.appearanceModeRawValue,
             NimclipAppearanceMode.light.rawValue
         )
+        XCTAssertTrue(fixture.store.settings.hasExplicitAppearanceSelection)
 
         try fixture.store.updateSettings(historyLimit: 1, retentionDays: 999)
         XCTAssertEqual(fixture.store.settings.historyLimit, ClipboardStore.minimumHistoryLimit)
@@ -268,6 +322,7 @@ final class ClipboardStoreTests: XCTestCase {
             reopenedStore.settings.appearanceModeRawValue,
             NimclipAppearanceMode.light.rawValue
         )
+        XCTAssertTrue(reopenedStore.settings.hasExplicitAppearanceSelection)
     }
 
     func testUntouchedLegacyDefaultMigratesWithoutOverwritingAUserChoice() throws {
@@ -295,7 +350,8 @@ final class ClipboardStoreTests: XCTestCase {
 
     private func makeStore(
         now: @escaping () -> Date = Date.init,
-        preloadedSettings: AppSettings? = nil
+        preloadedSettings: AppSettings? = nil,
+        initialAppearanceMode: NimclipAppearanceMode = .dark
     ) throws -> StoreFixture {
         let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
         let configuration = ModelConfiguration(
@@ -314,6 +370,7 @@ final class ClipboardStoreTests: XCTestCase {
         let store = try ClipboardStore(
             modelContainer: container,
             imagesDirectory: directory,
+            initialAppearanceMode: initialAppearanceMode,
             now: now
         )
         return StoreFixture(store: store, directory: directory)
@@ -360,7 +417,11 @@ final class ClipboardStoreTests: XCTestCase {
         return try XCTUnwrap(store.pasteboardArchive(for: item))
     }
 
-    private func makeDiskStore(storeURL: URL, directory: URL) throws -> ClipboardStore {
+    private func makeDiskStore(
+        storeURL: URL,
+        directory: URL,
+        initialAppearanceMode: NimclipAppearanceMode = .dark
+    ) throws -> ClipboardStore {
         let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
         let configuration = ModelConfiguration(
             "ClipletDiskTests",
@@ -370,7 +431,8 @@ final class ClipboardStoreTests: XCTestCase {
         let container = try ModelContainer(for: schema, configurations: configuration)
         return try ClipboardStore(
             modelContainer: container,
-            imagesDirectory: directory.appendingPathComponent("images", isDirectory: true)
+            imagesDirectory: directory.appendingPathComponent("images", isDirectory: true),
+            initialAppearanceMode: initialAppearanceMode
         )
     }
 }

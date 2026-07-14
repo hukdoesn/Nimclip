@@ -6,6 +6,17 @@ enum NimclipAppearanceMode: String, CaseIterable, Codable, Identifiable {
 
     static let defaultMode: Self = .dark
 
+    @MainActor
+    static var currentSystemMode: Self {
+        resolvedSystemMode(from: NSApplication.shared.effectiveAppearance)
+    }
+
+    static func resolvedSystemMode(from appearance: NSAppearance) -> Self {
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? .dark
+            : .light
+    }
+
     var id: String { rawValue }
 
     var title: String {

@@ -14,6 +14,7 @@ final class AppSettings {
     var hotKeyModifiers: UInt32
     var launchAtLogin: Bool
     var appearanceModeRawValue: String = "dark"
+    var hasExplicitAppearanceSelection: Bool = false
     var createdAt: Date
     var updatedAt: Date
 
@@ -25,6 +26,7 @@ final class AppSettings {
         hotKeyModifiers: UInt32 = 768,
         launchAtLogin: Bool = false,
         appearanceMode: NimclipAppearanceMode = .defaultMode,
+        hasExplicitAppearanceSelection: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -35,6 +37,7 @@ final class AppSettings {
         self.hotKeyModifiers = hotKeyModifiers
         self.launchAtLogin = launchAtLogin
         self.appearanceModeRawValue = appearanceMode.rawValue
+        self.hasExplicitAppearanceSelection = hasExplicitAppearanceSelection
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
