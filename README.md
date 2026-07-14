@@ -58,7 +58,7 @@ Nimclip 安静地常驻在菜单栏。按下 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>
 
 ## 简洁、透明的关于页面
 
-版本、项目主页、作者入口、本地隐私说明和开源许可都集中在关于页面，不堆叠多余宣传内容。
+版本、项目主页、作者入口、本地隐私说明和开源许可都集中在关于页面，不堆叠多余宣传内容。点击“项目主页”会通过 macOS 默认浏览器打开 Nimclip 的 GitHub 仓库。
 
 <p align="center">
   <img src="./docs/images/nimclip-about-themes.png" width="1120" alt="Nimclip 关于页面的浅色和深色外观">

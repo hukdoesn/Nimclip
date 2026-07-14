@@ -684,7 +684,9 @@ private struct NimclipAboutLink: View {
     let destination: URL
 
     var body: some View {
-        Link(destination: destination) {
+        Button {
+            NSWorkspace.shared.open(destination)
+        } label: {
             HStack(spacing: 5) {
                 Text(title)
                 Image(systemName: systemImage)
@@ -692,6 +694,8 @@ private struct NimclipAboutLink: View {
             }
         }
         .buttonStyle(NimclipAboutControlStyle())
+        .help("在默认浏览器中打开项目主页")
+        .accessibilityHint("使用 macOS 默认浏览器打开")
     }
 }
 
