@@ -102,29 +102,32 @@ struct SettingsView: View {
 
             VStack(spacing: 4) {
                 ForEach(NimclipSettingsPane.allCases) { pane in
+                    let isSelected = navigation.selectedPane == pane
+
                     Button {
-                        withAnimation(.easeOut(duration: 0.12)) {
-                            navigation.selectedPane = pane
-                        }
+                        guard !isSelected else { return }
+                        navigation.selectedPane = pane
                     } label: {
                         HStack(spacing: 9) {
                             Image(systemName: pane.systemImage)
                                 .font(.system(size: 12, weight: .medium))
                                 .frame(width: 18)
                             Text(pane.title)
-                                .font(.system(size: 13, weight: navigation.selectedPane == pane ? .medium : .regular))
+                                .font(.system(size: 13, weight: isSelected ? .medium : .regular))
                             Spacer()
                         }
                         .padding(.horizontal, 10)
-                        .frame(height: 34)
-                        .foregroundStyle(navigation.selectedPane == pane ? Color.primary : Color.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                         .background(
-                            navigation.selectedPane == pane ? Color.primary.opacity(0.09) : Color.clear,
+                            Color.primary.opacity(isSelected ? 0.09 : 0),
                             in: RoundedRectangle(cornerRadius: 7, style: .continuous)
                         )
+                        .animation(.easeOut(duration: 0.1), value: isSelected)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(navigation.selectedPane == pane ? .isSelected : [])
+                    .buttonStyle(NimclipSidebarButtonStyle())
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
             .padding(.horizontal, 8)
@@ -487,7 +490,7 @@ struct NimclipAboutView: View {
                 .font(.system(size: 24, weight: .semibold))
                 .padding(.top, 16)
 
-            Text("轻量、原生的 macOS 剪贴板历史")
+            Text("轻量、原生、开源的 macOS 剪贴板历史")
                 .font(.system(size: 12.5))
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
@@ -519,7 +522,7 @@ struct NimclipAboutView: View {
             HStack(spacing: 8) {
                 Text("Apache License 2.0")
                 Spacer()
-                Text("© 2026 hukdoesn")
+                Text("© 2026 hukdoesn ｜ 胡图图不涂涂")
             }
             .font(.system(size: 10.5))
             .foregroundStyle(.secondary)
@@ -529,6 +532,14 @@ struct NimclipAboutView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clipletCanvas)
         .tint(Color.clipletSelection)
+    }
+}
+
+private struct NimclipSidebarButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.72 : 1)
+            .animation(.linear(duration: 0.06), value: configuration.isPressed)
     }
 }
 
