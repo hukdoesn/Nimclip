@@ -12,10 +12,10 @@
 </div>
 
 <p align="center">
-  <img src="./docs/images/nimclip-main-real.png" width="520" alt="真实运行中的 Nimclip 主窗口">
+  <img src="./docs/images/nimclip-macbook-themes.png" width="1120" alt="MacBook 上同时展示浅色和深色外观的 Nimclip">
 </p>
 
-<p align="center"><sub>Nimclip 主程序真实截图 · 使用本机实际剪贴板历史 · 未截取背景应用</sub></p>
+<p align="center"><sub>真实 Nimclip 界面与本机剪贴板历史 · 浅色 / 深色双外观 · 未截取其他应用</sub></p>
 
 Nimclip 安静地常驻在菜单栏。按下 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd>，刚刚复制过的文字、链接、代码和图片会立即回到眼前；搜索、选择，然后继续手头的工作。
 
@@ -50,7 +50,21 @@ Nimclip 安静地常驻在菜单栏。按下 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>
 
 尚未主动选择外观时，Nimclip 会在启动时读取 macOS 当前的浅色或深色配置，底部按钮也会显示对应的切换图标。你可以在设置页中选择始终浅色或始终深色，也可以直接在主窗口底部快速切换；主动选择后会持久保存，不再跟随系统变化。
 
-![真实运行中的 Nimclip 设置窗口](./docs/images/nimclip-settings-real.png)
+<p align="center">
+  <img src="./docs/images/nimclip-settings-themes.png" width="1120" alt="Nimclip 设置页面的浅色和深色外观">
+</p>
+
+<p align="center"><sub>真实设置窗口 · 外观、快捷键、保留数量与保留时间集中管理</sub></p>
+
+## 简洁、透明的关于页面
+
+版本、项目主页、作者入口、本地隐私说明和开源许可都集中在关于页面，不堆叠多余宣传内容。
+
+<p align="center">
+  <img src="./docs/images/nimclip-about-themes.png" width="1120" alt="Nimclip 关于页面的浅色和深色外观">
+</p>
+
+<p align="center"><sub>浅色与深色保持同一套原生布局 · 项目信息清晰可见</sub></p>
 
 ## 数据与隐私
 
