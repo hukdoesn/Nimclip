@@ -75,6 +75,30 @@ Nimclip 使用 SwiftData 在本机持久化历史记录，底层为 SQLite。退
 
 支持 macOS 15.0 及更高版本，当前安装包适用于 Apple Silicon Mac。“直接粘贴”需要 macOS 辅助功能权限；未授权时仍可以复制选中内容后手动粘贴。
 
+### macOS 15 无法打开
+
+Nimclip 没有使用 Apple Developer ID 证书，也没有经过 Apple 公证。首次打开时，macOS 可能提示“无法验证开发者”“Apple 无法检查是否包含恶意软件”或“应用已损坏”。请只对从 Nimclip 项目主页下载的安装包执行以下操作。
+
+**方法一：在系统设置中允许（推荐）**
+
+1. 双击一次 `Nimclip.app`，然后关闭系统提示。
+2. 打开“系统设置”→“隐私与安全性”。
+3. 在“安全性”区域找到 Nimclip，点击“仍要打开”（Open Anyway）。
+4. 输入 Mac 登录密码，再次确认打开。
+
+macOS 15 不再支持通过 Control/右键点击直接绕过这类检查。“仍要打开”通常只会在首次尝试打开后的约一小时内显示。
+
+**方法二：仍提示“已损坏”**
+
+确认安装包来自 Nimclip 项目主页且下载完整后，打开“终端”执行：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Nimclip.app"
+open "/Applications/Nimclip.app"
+```
+
+以上命令只会移除 Nimclip 的下载隔离标记，不会关闭 macOS 的整体安全检查。请勿使用 `sudo spctl --master-disable`。
+
 ## 开源许可
 
 Nimclip 基于 [Apache License 2.0](./LICENSE) 开源。修改或重新分发时，请保留 `LICENSE`、`NOTICE` 和 Nimclip 原项目归属说明，并标明已修改的内容。
