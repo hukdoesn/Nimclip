@@ -1,10 +1,28 @@
+import Observation
 import SwiftUI
+
+@Observable
+final class NimclipSettingsNavigation {
+    var selectedPane: NimclipSettingsPane
+
+    init(selectedPane: NimclipSettingsPane = .settings) {
+        self.selectedPane = selectedPane
+    }
+}
 
 struct SettingsView: View {
     @Bindable var viewModel: ClipletViewModel
+    @Bindable var navigation: NimclipSettingsNavigation
 
     @State private var isShowingClearConfirmation = false
-    @State private var selectedPane: NimclipSettingsPane = .settings
+
+    init(
+        viewModel: ClipletViewModel,
+        navigation: NimclipSettingsNavigation = NimclipSettingsNavigation()
+    ) {
+        self.viewModel = viewModel
+        self.navigation = navigation
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -12,7 +30,7 @@ struct SettingsView: View {
             Divider()
 
             Group {
-                switch selectedPane {
+                switch navigation.selectedPane {
                 case .settings:
                     VStack(spacing: 0) {
                         pageHeader(
@@ -86,7 +104,7 @@ struct SettingsView: View {
                 ForEach(NimclipSettingsPane.allCases) { pane in
                     Button {
                         withAnimation(.easeOut(duration: 0.12)) {
-                            selectedPane = pane
+                            navigation.selectedPane = pane
                         }
                     } label: {
                         HStack(spacing: 9) {
@@ -94,19 +112,19 @@ struct SettingsView: View {
                                 .font(.system(size: 12, weight: .medium))
                                 .frame(width: 18)
                             Text(pane.title)
-                                .font(.system(size: 13, weight: selectedPane == pane ? .medium : .regular))
+                                .font(.system(size: 13, weight: navigation.selectedPane == pane ? .medium : .regular))
                             Spacer()
                         }
                         .padding(.horizontal, 10)
                         .frame(height: 34)
-                        .foregroundStyle(selectedPane == pane ? Color.primary : Color.secondary)
+                        .foregroundStyle(navigation.selectedPane == pane ? Color.primary : Color.secondary)
                         .background(
-                            selectedPane == pane ? Color.primary.opacity(0.09) : Color.clear,
+                            navigation.selectedPane == pane ? Color.primary.opacity(0.09) : Color.clear,
                             in: RoundedRectangle(cornerRadius: 7, style: .continuous)
                         )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityAddTraits(selectedPane == pane ? .isSelected : [])
+                    .accessibilityAddTraits(navigation.selectedPane == pane ? .isSelected : [])
                 }
             }
             .padding(.horizontal, 8)
@@ -333,7 +351,7 @@ private struct NimclipShortcutButtonStyle: ButtonStyle {
     }
 }
 
-private enum NimclipSettingsPane: String, CaseIterable, Identifiable {
+enum NimclipSettingsPane: String, CaseIterable, Identifiable {
     case settings
     case about
 
@@ -446,97 +464,67 @@ struct NimclipAboutView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("关于 Nimclip")
-                    .font(.system(size: 19, weight: .semibold))
-                Text("项目、版本与开源信息")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(.secondary)
+            Spacer(minLength: 26)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.clipletSettingsSurface)
+                Image("NimclipMark")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(.primary)
+                    .padding(18)
             }
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .padding(.horizontal, 24)
+            .frame(width: 76, height: 76)
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.clipletBorder.opacity(0.55), lineWidth: 0.5)
+            }
+            .accessibilityHidden(true)
+
+            Text("Nimclip")
+                .font(.system(size: 24, weight: .semibold))
+                .padding(.top, 16)
+
+            Text("轻量、原生的 macOS 剪贴板历史")
+                .font(.system(size: 12.5))
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+
+            Text("版本 \(NimclipBuildInfo.version)（\(NimclipBuildInfo.build)）")
+                .font(.system(size: 10.5))
+                .foregroundStyle(.tertiary)
+                .monospacedDigit()
+                .padding(.top, 5)
+
+            HStack(spacing: 8) {
+                NimclipAboutLink(
+                    title: "项目主页",
+                    systemImage: "arrow.up.right",
+                    destination: repositoryURL
+                )
+                NimclipAboutLink(
+                    title: "反馈问题",
+                    systemImage: "bubble.left",
+                    destination: issuesURL
+                )
+            }
+            .padding(.top, 18)
+
+            Spacer(minLength: 24)
 
             Divider()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack(spacing: 15) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                .fill(Color.clipletSettingsSurface)
-                            Image("NimclipMark")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundStyle(.primary)
-                                .padding(15)
-                        }
-                        .frame(width: 64, height: 64)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                .stroke(Color.clipletBorder.opacity(0.55), lineWidth: 0.5)
-                        }
-                        .accessibilityHidden(true)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Nimclip")
-                                .font(.system(size: 22, weight: .semibold))
-                            Text("轻量、原生的 macOS 剪贴板历史")
-                                .font(.system(size: 12.5))
-                                .foregroundStyle(.secondary)
-                            Text("版本 \(NimclipBuildInfo.version)（\(NimclipBuildInfo.build)）")
-                                .font(.system(size: 10.5))
-                                .foregroundStyle(.tertiary)
-                                .monospacedDigit()
-                        }
-                    }
-
-                    HStack(spacing: 8) {
-                        Link(destination: repositoryURL) {
-                            Label("在 GitHub 上 Star", systemImage: "star")
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        Link(destination: issuesURL) {
-                            Label("反馈问题", systemImage: "exclamationmark.bubble")
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .controlSize(.regular)
-
-                    VStack(spacing: 0) {
-                        NimclipAboutRow(title: "源代码", value: "hukdoesn/Nimclip")
-                        Divider()
-                        NimclipAboutRow(title: "许可证", value: "Apache-2.0")
-                    }
-                    .padding(.horizontal, 14)
-                    .background(Color.clipletSettingsSurface, in: RoundedRectangle(cornerRadius: 9))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 9)
-                            .stroke(Color.clipletBorder.opacity(0.55), lineWidth: 0.5)
-                    }
-
-                    VStack(alignment: .leading, spacing: 7) {
-                        Label("本地存储与隐私", systemImage: "lock")
-                            .font(.system(size: 12.5, weight: .semibold))
-                        Text("历史记录使用 SwiftData 持久化，图片单独保存在这台 Mac 的 Application Support 目录。Nimclip 不要求账户，也不会上传剪贴板内容。")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    VStack(alignment: .leading, spacing: 7) {
-                        Label("开放源代码", systemImage: "chevron.left.forwardslash.chevron.right")
-                            .font(.system(size: 12.5, weight: .semibold))
-                        Text("二次开发与分发时请依照 Apache License 2.0 保留 LICENSE 与 NOTICE、标明修改，并保留 Nimclip 原项目归属。")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 20)
+            HStack(spacing: 8) {
+                Text("Apache License 2.0")
+                Spacer()
+                Text("© 2026 hukdoesn")
             }
+            .font(.system(size: 10.5))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 22)
+            .frame(height: 46)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clipletCanvas)
@@ -544,20 +532,29 @@ struct NimclipAboutView: View {
     }
 }
 
-private struct NimclipAboutRow: View {
+private struct NimclipAboutLink: View {
     let title: String
-    let value: String
+    let systemImage: String
+    let destination: URL
 
     var body: some View {
-        HStack {
-            Text(title)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .monospacedDigit()
+        Link(destination: destination) {
+            HStack(spacing: 5) {
+                Text(title)
+                Image(systemName: systemImage)
+                    .font(.system(size: 9.5, weight: .semibold))
+            }
         }
-        .font(.system(size: 12))
-        .frame(height: 38)
+        .font(.system(size: 11.5, weight: .medium))
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 10)
+        .frame(height: 28)
+        .background(Color.primary.opacity(0.065), in: RoundedRectangle(cornerRadius: 6))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.clipletBorder.opacity(0.55), lineWidth: 0.5)
+        }
+        .buttonStyle(.plain)
     }
 }
 

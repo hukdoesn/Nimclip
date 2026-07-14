@@ -18,6 +18,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private let previewPanelController = ClipletPreviewPanelController()
+    private let settingsNavigation = NimclipSettingsNavigation()
     private var settingsWindow: NSWindow?
     private var viewModel: ClipletViewModel?
     #if DEBUG
@@ -84,7 +85,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
         let aboutItem = NSMenuItem(
             title: "关于 Nimclip",
-            action: #selector(showAboutPanel),
+            action: #selector(showAboutFromMenu),
             keyEquivalent: ""
         )
         aboutItem.target = self
@@ -234,34 +235,28 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     @objc
     private func showSettingsFromMenu() {
-        showSettings()
+        showSettings(pane: .settings)
     }
 
     @objc
-    private func showAboutPanel() {
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        NSApplication.shared.orderFrontStandardAboutPanel(options: [
-            .applicationName: "Nimclip",
-            .applicationVersion: Bundle.main.object(
-                forInfoDictionaryKey: "CFBundleShortVersionString"
-            ) as? String ?? "1.0",
-            .version: Bundle.main.object(
-                forInfoDictionaryKey: "CFBundleVersion"
-            ) as? String ?? "-",
-            .credits: NSAttributedString(
-                string: "原生 macOS 剪贴板历史\nhttps://github.com/hukdoesn/Nimclip"
-            )
-        ])
+    private func showAboutFromMenu() {
+        showSettings(pane: .about)
     }
 
-    private func showSettings() {
+    private func showSettings(pane: NimclipSettingsPane = .settings) {
         closePopover()
         guard let viewModel else { return }
 
+        settingsNavigation.selectedPane = pane
         NSApplication.shared.setActivationPolicy(.regular)
 
         if settingsWindow == nil {
-            let controller = NSHostingController(rootView: SettingsView(viewModel: viewModel))
+            let controller = NSHostingController(
+                rootView: SettingsView(
+                    viewModel: viewModel,
+                    navigation: settingsNavigation
+                )
+            )
             let window = NSWindow(contentViewController: controller)
             window.title = "Nimclip"
             window.styleMask = [.titled, .closable, .miniaturizable]
