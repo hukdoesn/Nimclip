@@ -67,13 +67,16 @@ Nimclip 使用 SwiftData 在本机持久化历史记录，底层为 SQLite。退
 
 ## 安装
 
-安装包：`Nimclip-macOS-arm64.zip`
+安装包：
 
-1. 从 [GitHub Releases](https://github.com/hukdoesn/Nimclip/releases) 下载安装包。
+- Apple Silicon（M1、M2、M3、M4 等）：`Nimclip-macOS-arm64.zip`
+- Intel：`Nimclip-macOS-x86_64.zip`
+
+1. 从 [GitHub Releases](https://github.com/hukdoesn/Nimclip/releases) 下载与 Mac 芯片对应的安装包。
 2. 解压后将 `Nimclip.app` 移入“应用程序”文件夹。
 3. 打开 Nimclip，使用 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> 唤起剪贴板历史。
 
-支持 macOS 15.0 及更高版本，当前安装包适用于 Apple Silicon Mac。“直接粘贴”需要 macOS 辅助功能权限；未授权时仍可以复制选中内容后手动粘贴。
+支持 macOS 15.0 及更高版本。“直接粘贴”需要 macOS 辅助功能权限；未授权时仍可以复制选中内容后手动粘贴。
 
 ### 首次打开
 

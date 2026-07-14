@@ -1,0 +1,79 @@
+name: 打包 Nimclip
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Apple Silicon
+            arch: arm64
+            runner: macos-15
+          - name: Intel
+            arch: x86_64
+            runner: macos-15-intel
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 选择 Xcode 26.3
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+
+      - name: 构建并打包
+        run: ./package.sh "${{ matrix.arch }}"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nimclip-macOS-${{ matrix.arch }}
+          path: |
+            dist/Nimclip-macOS-${{ matrix.arch }}.zip
+            dist/Nimclip-macOS-${{ matrix.arch }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: 发布安装包
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 下载全部安装包
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Nimclip-macOS-*
+          path: dist
+          merge-multiple: true
+
+      - name: 创建或更新 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --title "Nimclip $TAG" --generate-notes
+          fi
