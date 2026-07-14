@@ -87,6 +87,14 @@ final class ClipboardStore: ObservableObject {
         if savedSettings == nil {
             context.insert(resolvedSettings)
             try context.save()
+        } else if resolvedSettings.historyLimit == AppSettings.defaultHistoryLimit,
+                  resolvedSettings.retentionDays == AppSettings.legacyDefaultRetentionDays,
+                  resolvedSettings.updatedAt.timeIntervalSince(resolvedSettings.createdAt).magnitude < 1 {
+            // Move untouched installs from the former 30-day default to the new default.
+            // A settings record that the user has edited keeps its chosen value.
+            resolvedSettings.retentionDays = AppSettings.defaultRetentionDays
+            resolvedSettings.updatedAt = now()
+            try context.save()
         }
 
         let resolvedImagesDirectory: URL

@@ -12,7 +12,7 @@ final class ClipboardStoreTests: XCTestCase {
         defer { fixture.cleanup() }
 
         XCTAssertEqual(fixture.store.settings.historyLimit, 500)
-        XCTAssertEqual(fixture.store.settings.retentionDays, 30)
+        XCTAssertEqual(fixture.store.settings.retentionDays, 7)
 
         let original = try fixture.store.ingestText(
             "Nimclip",
@@ -236,8 +236,32 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertEqual(fixture.store.settings.retentionDays, ClipboardStore.maximumRetentionDays)
     }
 
+    func testUntouchedLegacyDefaultMigratesWithoutOverwritingAUserChoice() throws {
+        let createdAt = Date(timeIntervalSince1970: 1_000)
+        let untouched = AppSettings(
+            retentionDays: AppSettings.legacyDefaultRetentionDays,
+            createdAt: createdAt,
+            updatedAt: createdAt
+        )
+        let migratedStore = try makeStore(preloadedSettings: untouched)
+        defer { migratedStore.cleanup() }
+
+        XCTAssertEqual(migratedStore.store.settings.retentionDays, 7)
+
+        let customized = AppSettings(
+            retentionDays: AppSettings.legacyDefaultRetentionDays,
+            createdAt: createdAt,
+            updatedAt: createdAt.addingTimeInterval(60)
+        )
+        let preservedStore = try makeStore(preloadedSettings: customized)
+        defer { preservedStore.cleanup() }
+
+        XCTAssertEqual(preservedStore.store.settings.retentionDays, 30)
+    }
+
     private func makeStore(
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        preloadedSettings: AppSettings? = nil
     ) throws -> StoreFixture {
         let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
         let configuration = ModelConfiguration(
@@ -246,6 +270,11 @@ final class ClipboardStoreTests: XCTestCase {
             isStoredInMemoryOnly: true
         )
         let container = try ModelContainer(for: schema, configurations: configuration)
+        if let preloadedSettings {
+            let context = ModelContext(container)
+            context.insert(preloadedSettings)
+            try context.save()
+        }
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ClipletTests-\(UUID().uuidString)", isDirectory: true)
         let store = try ClipboardStore(

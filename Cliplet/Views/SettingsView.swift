@@ -1,3 +1,4 @@
+import AppKit
 import Observation
 import SwiftUI
 
@@ -463,7 +464,7 @@ private struct NimclipEditableStepper: View {
 
 struct NimclipAboutView: View {
     private let repositoryURL = URL(string: "https://github.com/hukdoesn/Nimclip")!
-    private let issuesURL = URL(string: "https://github.com/hukdoesn/Nimclip/issues")!
+    @State private var isShowingContact = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -507,11 +508,19 @@ struct NimclipAboutView: View {
                     systemImage: "arrow.up.right",
                     destination: repositoryURL
                 )
-                NimclipAboutLink(
-                    title: "反馈问题",
-                    systemImage: "bubble.left",
-                    destination: issuesURL
-                )
+                Button {
+                    isShowingContact.toggle()
+                } label: {
+                    HStack(spacing: 5) {
+                        Text("联系作者")
+                        Image(systemName: "bubble.left")
+                            .font(.system(size: 9.5, weight: .semibold))
+                    }
+                }
+                .buttonStyle(NimclipAboutControlStyle())
+                .popover(isPresented: $isShowingContact, arrowEdge: .bottom) {
+                    NimclipContactView()
+                }
             }
             .padding(.top, 18)
 
@@ -556,16 +565,243 @@ private struct NimclipAboutLink: View {
                     .font(.system(size: 9.5, weight: .semibold))
             }
         }
-        .font(.system(size: 11.5, weight: .medium))
-        .foregroundStyle(.primary)
-        .padding(.horizontal, 10)
-        .frame(height: 28)
-        .background(Color.primary.opacity(0.065), in: RoundedRectangle(cornerRadius: 6))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.clipletBorder.opacity(0.55), lineWidth: 0.5)
+        .buttonStyle(NimclipAboutControlStyle())
+    }
+}
+
+private struct NimclipAboutControlStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(
+                Color.primary.opacity(configuration.isPressed ? 0.11 : 0.065),
+                in: RoundedRectangle(cornerRadius: 6)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.clipletBorder.opacity(0.55), lineWidth: 0.5)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .animation(.linear(duration: 0.06), value: configuration.isPressed)
+    }
+}
+
+struct NimclipContactView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private let issuesURL = URL(string: "https://github.com/hukdoesn/Nimclip/issues")!
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("联系作者")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("选择 GitHub 或微信联系")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("关闭")
+            }
+
+            Link(destination: issuesURL) {
+                HStack(spacing: 7) {
+                    Image(systemName: "ladybug")
+                    Text("通过 GitHub 联系")
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 9.5, weight: .semibold))
+                }
+                .padding(.horizontal, 11)
+                .frame(maxWidth: .infinity, minHeight: 34)
+            }
+            .buttonStyle(NimclipContactLinkStyle())
+            .padding(.top, 14)
+
+            HStack(spacing: 9) {
+                Divider()
+                Text("微信联系")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+                Divider()
+            }
+            .frame(height: 12)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            NimclipContactQRCodeImage()
+                .frame(width: 182, height: 182)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(Color.clipletBorder.opacity(0.6), lineWidth: 0.5)
+                }
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel("微信二维码，联系人胡图图不涂涂")
+
+            Text("扫码添加「胡图图不涂涂」")
+                .font(.system(size: 11.5, weight: .medium))
+                .frame(maxWidth: .infinity)
+                .padding(.top, 10)
+
+            Text("添加时请备注“Nimclip”，方便识别。")
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 3)
         }
-        .buttonStyle(.plain)
+        .padding(18)
+        .frame(width: 320, height: 408, alignment: .top)
+        .background(Color.clipletCanvas)
+        .tint(Color.clipletSelection)
+    }
+}
+
+private struct NimclipContactQRCodeImage: NSViewRepresentable {
+    func makeNSView(context: Context) -> NimclipContactQRCodeNSView {
+        NimclipContactQRCodeNSView()
+    }
+
+    func updateNSView(_ nsView: NimclipContactQRCodeNSView, context: Context) {}
+}
+
+private final class NimclipContactQRCodeNSView: NSView {
+    // Precomputed from the WeChat contact URL so system appearance cannot recolor it.
+    private static let rows = [
+        "00000000000000000000000000000000000",
+        "01111111001100100111010010011111110",
+        "01000001001100111010010100010000010",
+        "01011101011111101111111111010111010",
+        "01011101010100011100110100010111010",
+        "01011101011101101011000111010111010",
+        "01000001010100101100011000010000010",
+        "01111111010101010101010101011111110",
+        "00000000010001001000001010000000000",
+        "01011111001001111000000101011111000",
+        "01111000010010001101101010011011010",
+        "00010111100010001001010000000101100",
+        "01100000111100011000011100000111000",
+        "01101001101011000001100001100110100",
+        "01011010111011111110011110000010110",
+        "00101101101101010001101000111101100",
+        "00100100101000010100111111111011000",
+        "01000101011111100100100111101100010",
+        "00010110110001101111110110111011000",
+        "00111001100111001110011100101101100",
+        "01011110001111001111111110111111100",
+        "01010101111111010100110001100010010",
+        "01111010111100111011001100000011010",
+        "01001011111101001110011101100111100",
+        "01010010010100011001001001100001000",
+        "01001101100000011010000001111110000",
+        "00000000011010000100111011000101110",
+        "01111111000001111101010011010101000",
+        "01000001011011010100101011000111100",
+        "01011101010111110001001001111110110",
+        "01011101011001001110010000000101110",
+        "01011101010100110001100110011001000",
+        "01000001000010100101111010100111000",
+        "01111111010100100010100111011011100",
+        "00000000000000000000000000000000000"
+    ]
+
+    private let modules: [Bool]
+    private let moduleCount: Int
+
+    override init(frame frameRect: NSRect) {
+        moduleCount = Self.rows.count
+        modules = Self.rows.flatMap { row in
+            row.map { $0 == "1" }
+        }
+
+        super.init(frame: frameRect)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var isOpaque: Bool {
+        true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        bounds.fill()
+
+        guard moduleCount > 0 else { return }
+
+        let quietZone = 4
+        let totalModules = moduleCount + (quietZone * 2)
+        let moduleSize = floor(
+            min(bounds.width, bounds.height) / CGFloat(totalModules)
+        )
+        let qrCodeSize = moduleSize * CGFloat(totalModules)
+        let origin = CGPoint(
+            x: floor((bounds.width - qrCodeSize) / 2),
+            y: floor((bounds.height - qrCodeSize) / 2)
+        )
+
+        NSColor.black.setFill()
+        for row in 0..<moduleCount {
+            for column in 0..<moduleCount where modules[(row * moduleCount) + column] {
+                let rect = NSRect(
+                    x: origin.x + CGFloat(column + quietZone) * moduleSize,
+                    y: origin.y + CGFloat(moduleCount - 1 - row + quietZone) * moduleSize,
+                    width: moduleSize,
+                    height: moduleSize
+                )
+                rect.fill()
+            }
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
+    override func layout() {
+        super.layout()
+        if !bounds.isEmpty {
+            needsDisplay = true
+        }
+    }
+}
+
+private struct NimclipContactLinkStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(.primary)
+            .background(
+                Color.primary.opacity(configuration.isPressed ? 0.11 : 0.065),
+                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(Color.clipletBorder.opacity(0.55), lineWidth: 0.5)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .animation(.linear(duration: 0.06), value: configuration.isPressed)
     }
 }
 

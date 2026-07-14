@@ -3,6 +3,10 @@ import SwiftData
 
 @Model
 final class AppSettings {
+    static let defaultHistoryLimit = 500
+    static let defaultRetentionDays = 7
+    static let legacyDefaultRetentionDays = 30
+
     @Attribute(.unique) var id: UUID
     var historyLimit: Int
     var retentionDays: Int
@@ -14,8 +18,8 @@ final class AppSettings {
 
     init(
         id: UUID = UUID(),
-        historyLimit: Int = 500,
-        retentionDays: Int = 30,
+        historyLimit: Int = AppSettings.defaultHistoryLimit,
+        retentionDays: Int = AppSettings.defaultRetentionDays,
         hotKeyKeyCode: UInt32 = 9,
         hotKeyModifiers: UInt32 = 768,
         launchAtLogin: Bool = false,
