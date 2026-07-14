@@ -1,56 +1,115 @@
-# Nimclip
+<div align="center">
+  <img src="./Cliplet/Assets.xcassets/NimclipAppIcon.imageset/nimclip-app-icon.png" width="112" height="112" alt="Nimclip 图标">
+  <h1>Nimclip</h1>
+  <p><strong>复制过的东西，不该一闪而过。</strong></p>
+  <p>轻量、原生、开源的 macOS 剪贴板历史工具。</p>
+  <p>
+    <img src="https://img.shields.io/badge/macOS-15.0%2B-242424?style=flat-square&logo=apple&logoColor=white" alt="macOS 15.0+">
+    <img src="https://img.shields.io/badge/Swift-6.0-554f49?style=flat-square&logo=swift&logoColor=white" alt="Swift 6.0">
+    <img src="https://img.shields.io/badge/UI-SwiftUI-71685f?style=flat-square" alt="SwiftUI">
+    <img src="https://img.shields.io/badge/License-Apache--2.0-8b7d6c?style=flat-square" alt="Apache License 2.0">
+  </p>
+</div>
 
-Nimclip 是一款面向 macOS 15 及更高版本的轻量原生剪贴板历史工具。它常驻菜单栏，通过 `Command-Shift-V` 快速查看、搜索和重新粘贴历史内容。
+![Nimclip 在 Mac 上运行的产品示例](./docs/images/nimclip-hero.png)
 
-[在 GitHub 上为 Nimclip 点 Star](https://github.com/hukdoesn/Nimclip) · [反馈问题](https://github.com/hukdoesn/Nimclip/issues)
+<p align="center"><sub>原生菜单栏体验 · 演示画面使用安全示例数据</sub></p>
 
-Nimclip 会保留一次复制事务中的纯文本、HTML、RTF/RTFD、图片及应用自定义剪贴板表示，并在重新复制或粘贴时按原 item 顺序写回。完全相同的内容和格式会自动去重；文字相同但格式不同的记录不会被错误合并。对于超过轻量存储上限或无法完整读取的事务，Nimclip 会提示并跳过记录，避免保存一个看似正常但已经丢失格式的副本。
+Nimclip 安静地常驻在菜单栏。按下 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd>，刚刚复制过的文字、链接、代码和图片会立即回到眼前；搜索、选择，然后继续手头的工作。
 
-## 高频操作
+它不仅保存“看得见的文字”，还会尽可能保留一次复制事务中的 HTML、RTF/RTFD、图片和应用自定义剪贴板表示。重新粘贴时按原 item 顺序写回，文字相同但格式不同的内容不会被误判为重复记录。
 
-- 使用顶部类型栏快速筛选文本、链接、代码和图片，也可以叠加收藏与标签筛选。
-- 悬停文字记录后可直接“以纯文本粘贴”，右键菜单也提供纯文本复制与粘贴，不必再经过文本编辑器清除格式。
-- 点击顶部“多条拼贴”，按需要的顺序选择多段文字，即可一次复制或粘贴合并后的内容。
-- 按住 `Option` 并悬停记录可查看完整内容，链接记录可以直接打开。
+## 主要功能
 
-## 开源许可
+| 找得快 | 粘得准 | 管得住 |
+| --- | --- | --- |
+| 全局快捷键随时唤起，支持即时搜索 | 保留原始格式，也可以一键转为纯文本 | 收藏重要内容，创建标签分类 |
+| 按文字、链接、代码、图片快速筛选 | 多条内容按所选顺序合并复制或粘贴 | 默认保留 500 条、7 天，均可调整 |
+| 显示来源应用名称与图标 | 完全相同的内容与格式自动去重 | 浅色与深色独立控制，不跟随系统切换 |
 
-Nimclip 采用 [Apache License 2.0](LICENSE)，并提供项目归属说明 [NOTICE](NOTICE)。欢迎使用、研究和二次开发；重新分发原项目或衍生作品时，需要遵守许可证第 4 节，包括：
+- **原生而克制**：使用 SwiftUI 与 AppKit 构建，交互贴近 macOS，不做网页式仪表盘。
+- **完整预览**：按住 `Option` 悬停记录即可展开完整内容；长文本可以滚动，鼠标可以进入预览窗口继续操作。
+- **纯文本粘贴**：随时清除富文本格式，不必再绕到文本编辑器中转。
+- **多条拼贴**：选择多段内容，按需要的顺序一次合并，适合整理提示词、回复和重复表单。
+- **来源可见**：记录来自哪个应用一目了然，找内容时不再只靠模糊记忆。
+- **收藏保护**：收藏项不参与普通的时间与条数清理，不会被自动淘汰。
 
-- 向接收者提供 Apache License 2.0；
-- 在修改过的文件中明确标注修改；
-- 保留适用的版权、商标与归属声明；
-- 在随衍生作品分发的 `NOTICE`、源码、文档或通常展示第三方声明的界面中，保留 Nimclip 的原项目归属。
+## 预览，不打断当前工作
 
-原项目地址：<https://github.com/hukdoesn/Nimclip>
+列表只负责快速浏览，完整内容留给独立预览窗口。按住 `Option` 后，预览会在记录旁边展开；即使文字很多，也可以把鼠标移入窗口滚动查看。
+
+![Nimclip 完整内容预览](./docs/images/nimclip-preview.png)
+
+## 浅色和深色，由你决定
+
+Nimclip 的外观独立于系统设置。你可以在设置页中选择始终浅色或始终深色，也可以直接在主窗口底部快速切换；选择会持久保存，下次打开仍保持不变。
+
+![Nimclip 浅色、深色与设置页面](./docs/images/nimclip-appearance.png)
 
 ## 数据与隐私
 
-- 历史、标签和设置通过 SwiftData 持久化到本机 SQLite 数据库 `~/Library/Application Support/Cliplet.store`，并非仅保存在内存中；运行时还会有 SQLite 的 `-wal` 与 `-shm` 辅助文件。
-- 图片文件单独保存在用户 `Application Support/Cliplet/ClipboardImages` 目录。
-- Nimclip 不要求账户，也不会把剪贴板内容上传到远程服务。
+Nimclip 的历史记录不是只放在内存里。应用使用 **SwiftData 持久化，底层为本机 SQLite**；退出并重新打开后，记录仍然存在。
 
-## 本地运行
+| 数据 | 保存位置 |
+| --- | --- |
+| 历史、标签与设置 | `~/Library/Application Support/Cliplet.store` |
+| SQLite 辅助文件 | 同目录下的 `Cliplet.store-wal` 与 `Cliplet.store-shm` |
+| 剪贴板图片 | `~/Library/Application Support/Cliplet/ClipboardImages/` |
 
-使用 Xcode 打开 `Cliplet.xcodeproj`，运行内部保留的 `Cliplet` scheme。应用安装和运行时显示为 Nimclip。完整测试命令：
+- 所有剪贴板内容只保存在这台 Mac，不要求登录账户，也不会上传到远程服务。
+- 默认最多保留 `500` 条普通记录，保留时间为 `7` 天；收藏项不受这两个限制。
+- 图片与格式化内容设有轻量存储上限。无法完整读取的事务会被跳过，避免留下看似正常、实际已经丢失格式的副本。
+
+## 开始使用
+
+### 环境要求
+
+- macOS 15.0 或更高版本
+- Xcode 16 或兼容 Swift 6 的完整 Xcode 环境
+- 当前打包脚本输出 Apple Silicon（arm64）版本
+
+### 在 Xcode 中运行
 
 ```bash
-xcodebuild test -project Cliplet.xcodeproj -scheme Cliplet -destination 'platform=macOS'
+git clone https://github.com/hukdoesn/Nimclip.git
+cd Nimclip
+open Cliplet.xcodeproj
 ```
 
-首次直接粘贴时，macOS 会请求辅助功能权限。未授予该权限时，Nimclip 仍会将选中内容复制回系统剪贴板。
+在 Xcode 中选择内部保留的 `Cliplet` scheme 后运行。项目内部名称仍为 Cliplet，安装后的应用名称为 **Nimclip**。
 
-## 打包
+执行完整测试：
 
-在项目根目录运行：
+```bash
+xcodebuild test \
+  -project Cliplet.xcodeproj \
+  -scheme Cliplet \
+  -destination 'platform=macOS'
+```
+
+### 打包应用
 
 ```bash
 ./package.sh
 ```
 
-脚本会基于 `Application_logo` 中的品牌资源重新生成菜单栏图标和 AppIcon，构建 Apple Silicon Release 版本，添加本机 ad-hoc 签名，并在 `dist/` 输出：
+脚本会重新生成菜单栏图标与 AppIcon，构建 arm64 Release、添加本机 ad-hoc 签名，并输出：
 
-- `Nimclip.app`
-- `Nimclip-macOS-arm64.zip`
+```text
+dist/Nimclip.app
+dist/Nimclip-macOS-arm64.zip
+```
 
-当前脚本生成 arm64 软件包，需要在 macOS 与完整 Xcode 环境中执行。
+## 权限说明
+
+Nimclip 读取系统剪贴板不需要账户或网络权限。只有“直接粘贴到当前应用”需要 macOS 辅助功能权限；未授权时，Nimclip 仍会把选中内容写回系统剪贴板，你可以手动按 <kbd>⌘</kbd> <kbd>V</kbd> 完成粘贴。
+
+## 开源许可
+
+Nimclip 基于 [Apache License 2.0](./LICENSE) 开源，项目归属信息见 [NOTICE](./NOTICE)。欢迎学习、修改和二次开发；重新分发原项目或衍生作品时，请按许可证要求保留适用的版权、许可与 Nimclip 原项目归属说明，并标明已修改的文件。
+
+项目主页：<https://github.com/hukdoesn/Nimclip>
+
+<div align="center">
+  <sub>© 2026 hukdoesn ｜ 胡图图不涂涂</sub>
+</div>
