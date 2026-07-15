@@ -2,9 +2,10 @@
   <img src="./Cliplet/Assets.xcassets/NimclipAppIcon.imageset/nimclip-app-icon.png" width="112" height="112" alt="Nimclip 图标">
   <h1>Nimclip</h1>
   <p>macOS 剪贴板历史工具</p>
+  <p><strong>简体中文</strong> · <a href="./README_EN.md">English</a></p>
   <p>
     <img src="https://img.shields.io/badge/macOS-15.0%2B-242424?style=flat-square&logo=apple&logoColor=white" alt="macOS 15.0+">
-    <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-554f49?style=flat-square" alt="Apple Silicon arm64">
+    <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-supported-554f49?style=flat-square" alt="Apple Silicon and Intel">
     <img src="https://img.shields.io/badge/License-Apache--2.0-71685f?style=flat-square" alt="Apache License 2.0">
   </p>
 </div>

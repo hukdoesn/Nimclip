@@ -1,0 +1,107 @@
+<div align="center">
+  <img src="./Cliplet/Assets.xcassets/NimclipAppIcon.imageset/nimclip-app-icon.png" width="112" height="112" alt="Nimclip icon">
+  <h1>Nimclip</h1>
+  <p>Clipboard history manager for macOS</p>
+  <p><a href="./README.md">简体中文</a> · <strong>English</strong></p>
+  <p>
+    <img src="https://img.shields.io/badge/macOS-15.0%2B-242424?style=flat-square&logo=apple&logoColor=white" alt="macOS 15.0+">
+    <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-supported-554f49?style=flat-square" alt="Apple Silicon and Intel">
+    <img src="https://img.shields.io/badge/License-Apache--2.0-71685f?style=flat-square" alt="Apache License 2.0">
+  </p>
+</div>
+
+<p align="center">
+  <img src="./docs/images/nimclip-macbook-themes.png" width="1120" alt="Nimclip in light and dark themes">
+</p>
+
+## What is Nimclip?
+
+Nimclip is a free and open-source, native, local-first clipboard history manager that lives in the macOS menu bar. Press <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> to find and paste something you copied earlier.
+
+## Features
+
+- History for text, links, code, images, and rich text
+- Search, type filters, favorites, and tags
+- Source application names and icons
+- Image thumbnails and full previews
+- Plain-text paste and multi-item merging
+- Configurable history limits and retention periods
+- Independent light and dark appearances
+- Customizable global shortcut and launch at login
+
+## Interface
+
+### Image and long-text previews
+
+Images appear as thumbnails in clipboard history and can be opened in a full preview. Long text also supports a separate, scrollable preview.
+
+<p align="center">
+  <img src="./docs/images/nimclip-image-preview-real.png" width="780" alt="Nimclip image preview">
+</p>
+
+### Settings
+
+Configure the appearance, global shortcut, history limit, retention period, and launch-at-login behavior.
+
+<p align="center">
+  <img src="./docs/images/nimclip-settings-themes.png" width="1120" alt="Nimclip settings in light and dark themes">
+</p>
+
+### Update notifications
+
+Nimclip can notify you when a new version is available. Updating the app does not remove clipboard history stored on your Mac.
+
+<p align="center">
+  <img src="./docs/images/nimclip-update-notification.png" width="1120" alt="Nimclip update notification">
+</p>
+
+## Privacy and storage
+
+Nimclip persists clipboard history locally with SwiftData and SQLite. Your history remains available after quitting the app or restarting your Mac.
+
+- Clipboard contents stay on your Mac
+- No account is required
+- Clipboard contents are never uploaded
+- The default retention policy is 500 items for 7 days
+- Favorites are never removed automatically
+- History and settings: `~/Library/Application Support/Cliplet.store`
+- Images: `~/Library/Application Support/Cliplet/ClipboardImages/`
+
+## Installation
+
+Download the appropriate archive from [GitHub Releases](https://github.com/hukdoesn/Nimclip/releases):
+
+- Apple Silicon: `Nimclip-macOS-arm64.zip`
+- Intel: `Nimclip-macOS-x86_64.zip`
+
+1. Unzip the archive and move `Nimclip.app` into the Applications folder.
+2. Open Nimclip.
+3. Press <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> to open clipboard history.
+
+Nimclip requires macOS 15.0 or later. Direct paste requires macOS Accessibility permission. Without it, Nimclip can still copy the selected item so you can paste it manually.
+
+### First launch
+
+If macOS prevents Nimclip from opening:
+
+1. Double-click `Nimclip.app` once, then close the system warning.
+2. Open System Settings → Privacy & Security.
+3. Find Nimclip in the Security section and click **Open Anyway**.
+4. Enter your Mac login password and confirm.
+
+If it is still blocked, verify that the archive came from the Nimclip repository, then run:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Nimclip.app"
+open "/Applications/Nimclip.app"
+```
+
+## License
+
+Nimclip is open source under the [Apache License 2.0](./LICENSE). Modified or redistributed versions must retain `LICENSE`, `NOTICE`, the original project attribution, and a notice describing the changes.
+
+Project home: <https://github.com/hukdoesn/Nimclip>
+
+<div align="center">
+  <sub>© 2026 hukdoesn</sub>
+</div>
