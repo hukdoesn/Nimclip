@@ -47,12 +47,7 @@ image: https://hukdoesn.github.io/Nimclip/images/nimclip-macbook-themes.png
   .nimclip-shot img {
     display: block;
     width: 100%;
-    height: auto;
     margin: 0;
-  }
-
-  .nimclip-shot a {
-    display: block;
   }
 
   .nimclip-shot figcaption {
@@ -71,24 +66,6 @@ image: https://hukdoesn.github.io/Nimclip/images/nimclip-macbook-themes.png
 
   .nimclip-gallery .nimclip-shot {
     margin: 0;
-  }
-
-  .nimclip-gallery--menu {
-    grid-template-columns: repeat(2, minmax(0, 440px));
-    justify-content: center;
-  }
-
-  .nimclip-resolution-note {
-    margin: -0.75rem 0 2rem;
-    color: #6e7781;
-    font-size: 0.85rem;
-    text-align: center;
-  }
-
-  .nimclip-shot--compact {
-    max-width: 887px;
-    margin-right: auto;
-    margin-left: auto;
   }
 
   @media (max-width: 720px) {
@@ -113,21 +90,10 @@ image: https://hukdoesn.github.io/Nimclip/images/nimclip-macbook-themes.png
   </div>
 </div>
 
-<div class="nimclip-gallery nimclip-gallery--menu">
-  <figure class="nimclip-shot">
-    <a href="./images/nimclip-menu-light@2x.png" aria-label="查看浅色主界面原图 / View the full-size light-mode window">
-      <img src="./images/nimclip-menu-light@2x.png" width="880" height="1200" alt="Nimclip clipboard history in light mode" decoding="async" fetchpriority="high">
-    </a>
-    <figcaption>浅色主题 / Light theme</figcaption>
-  </figure>
-  <figure class="nimclip-shot">
-    <a href="./images/nimclip-menu-dark@2x.png" aria-label="查看深色主界面原图 / View the full-size dark-mode window">
-      <img src="./images/nimclip-menu-dark@2x.png" width="880" height="1200" alt="Nimclip clipboard history in dark mode" decoding="async">
-    </a>
-    <figcaption>深色主题 / Dark theme</figcaption>
-  </figure>
-</div>
-<p class="nimclip-resolution-note">点击图片查看 @2x 原图 / Click an image to view the full @2x capture</p>
+<figure class="nimclip-shot">
+  <img src="./images/nimclip-macbook-themes.png" alt="Nimclip clipboard history in light and dark themes">
+  <figcaption>浅色与深色主题 / Light and dark themes</figcaption>
+</figure>
 
 ## 功能 / Features
 
@@ -154,20 +120,10 @@ image: https://hukdoesn.github.io/Nimclip/images/nimclip-macbook-themes.png
 
 Copied images remain easy to identify with thumbnails and a full-size preview.
 
-<div class="nimclip-gallery">
-  <figure class="nimclip-shot">
-    <a href="./images/nimclip-image-preview-light@2x.png" aria-label="查看浅色图片预览原图 / View the full-size light image preview">
-      <img src="./images/nimclip-image-preview-light@2x.png" width="1008" height="726" alt="Nimclip image clipboard preview in light mode" loading="lazy" decoding="async">
-    </a>
-    <figcaption>浅色图片预览 / Light image preview</figcaption>
-  </figure>
-  <figure class="nimclip-shot">
-    <a href="./images/nimclip-image-preview-dark@2x.png" aria-label="查看深色图片预览原图 / View the full-size dark image preview">
-      <img src="./images/nimclip-image-preview-dark@2x.png" width="1008" height="726" alt="Nimclip image clipboard preview in dark mode" loading="lazy" decoding="async">
-    </a>
-    <figcaption>深色图片预览 / Dark image preview</figcaption>
-  </figure>
-</div>
+<figure class="nimclip-shot">
+  <img src="./images/nimclip-image-preview-real.png" alt="Nimclip image clipboard preview" loading="lazy">
+  <figcaption>图片缩略图与大图预览 / Image thumbnails and full preview</figcaption>
+</figure>
 
 ### 个性化设置 / Personalization
 
@@ -175,44 +131,23 @@ Copied images remain easy to identify with thumbnails and a full-size preview.
 
 Customize shortcuts, retention, paste behavior, and appearance for your workflow.
 
-<div class="nimclip-gallery">
-  <figure class="nimclip-shot">
-    <a href="./images/nimclip-settings-light@2x.png" aria-label="查看浅色设置页面原图 / View the full-size light settings window">
-      <img src="./images/nimclip-settings-light@2x.png" width="1320" height="1040" alt="Nimclip settings in light mode" loading="lazy" decoding="async">
-    </a>
-    <figcaption>浅色设置 / Light settings</figcaption>
-  </figure>
-  <figure class="nimclip-shot">
-    <a href="./images/nimclip-settings-dark@2x.png" aria-label="查看深色设置页面原图 / View the full-size dark settings window">
-      <img src="./images/nimclip-settings-dark@2x.png" width="1320" height="1040" alt="Nimclip settings in dark mode" loading="lazy" decoding="async">
-    </a>
-    <figcaption>深色设置 / Dark settings</figcaption>
-  </figure>
-</div>
+<figure class="nimclip-shot">
+  <img src="./images/nimclip-settings-themes.png" alt="Nimclip settings in light and dark themes" loading="lazy">
+  <figcaption>完整设置页面 / Complete settings</figcaption>
+</figure>
 
 ### 原生体验 / Native Experience
 
 <div class="nimclip-gallery">
   <figure class="nimclip-shot">
-    <a href="./images/nimclip-about-light@2x.png" aria-label="查看浅色关于页面原图 / View the full-size light About window">
-      <img src="./images/nimclip-about-light@2x.png" width="1040" height="886" alt="Nimclip About window in light mode" loading="lazy" decoding="async">
-    </a>
-    <figcaption>浅色关于页面 / Light About window</figcaption>
+    <img src="./images/nimclip-about-themes.png" alt="Nimclip about window in light and dark themes" loading="lazy">
+    <figcaption>原生关于页面 / Native About window</figcaption>
   </figure>
   <figure class="nimclip-shot">
-    <a href="./images/nimclip-about-dark@2x.png" aria-label="查看深色关于页面原图 / View the full-size dark About window">
-      <img src="./images/nimclip-about-dark@2x.png" width="1040" height="886" alt="Nimclip About window in dark mode" loading="lazy" decoding="async">
-    </a>
-    <figcaption>深色关于页面 / Dark About window</figcaption>
+    <img src="./images/nimclip-update-notification.png" alt="Nimclip update notification" loading="lazy">
+    <figcaption>内置更新提醒 / Built-in update notification</figcaption>
   </figure>
 </div>
-
-<figure class="nimclip-shot nimclip-shot--compact">
-  <a href="./images/nimclip-update-notification.png" aria-label="查看更新提醒原图 / View the full-size update notification">
-    <img src="./images/nimclip-update-notification.png" width="1774" height="1348" alt="Nimclip update notification" loading="lazy" decoding="async">
-  </a>
-  <figcaption>内置更新提醒 / Built-in update notification</figcaption>
-</figure>
 
 ## 安装 / Installation
 

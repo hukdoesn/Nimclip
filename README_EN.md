@@ -11,11 +11,7 @@
 </div>
 
 <p align="center">
-  <a href="./docs/images/nimclip-menu-light@2x.png"><img src="./docs/images/nimclip-menu-light@2x.png" width="420" alt="Nimclip main window in light mode"></a>
-  <a href="./docs/images/nimclip-menu-dark@2x.png"><img src="./docs/images/nimclip-menu-dark@2x.png" width="420" alt="Nimclip main window in dark mode"></a>
-</p>
-<p align="center">
-  <sub>Light and dark themes · Click an image to view the full @2x capture</sub>
+  <img src="./docs/images/nimclip-macbook-themes.png" width="1120" alt="Nimclip in light and dark themes">
 </p>
 
 ## What is Nimclip?
@@ -41,8 +37,7 @@ Nimclip is a free and open-source, native, local-first clipboard history manager
 Images appear as thumbnails in clipboard history and can be opened in a full preview. Long text also supports a separate, scrollable preview.
 
 <p align="center">
-  <a href="./docs/images/nimclip-image-preview-light@2x.png"><img src="./docs/images/nimclip-image-preview-light@2x.png" width="420" alt="Nimclip image preview in light mode"></a>
-  <a href="./docs/images/nimclip-image-preview-dark@2x.png"><img src="./docs/images/nimclip-image-preview-dark@2x.png" width="420" alt="Nimclip image preview in dark mode"></a>
+  <img src="./docs/images/nimclip-image-preview-real.png" width="780" alt="Nimclip image preview">
 </p>
 
 ### Settings
@@ -50,8 +45,7 @@ Images appear as thumbnails in clipboard history and can be opened in a full pre
 Configure the app language, appearance, global shortcut, history limit, retention period, and launch-at-login behavior.
 
 <p align="center">
-  <a href="./docs/images/nimclip-settings-light@2x.png"><img src="./docs/images/nimclip-settings-light@2x.png" width="420" alt="Nimclip settings in light mode"></a>
-  <a href="./docs/images/nimclip-settings-dark@2x.png"><img src="./docs/images/nimclip-settings-dark@2x.png" width="420" alt="Nimclip settings in dark mode"></a>
+  <img src="./docs/images/nimclip-settings-themes.png" width="1120" alt="Nimclip settings in light and dark themes">
 </p>
 
 ### Update notifications
@@ -59,7 +53,7 @@ Configure the app language, appearance, global shortcut, history limit, retentio
 Nimclip can notify you when a new version is available. Updating the app does not remove clipboard history stored on your Mac.
 
 <p align="center">
-  <a href="./docs/images/nimclip-update-notification.png"><img src="./docs/images/nimclip-update-notification.png" width="887" alt="Nimclip update notification"></a>
+  <img src="./docs/images/nimclip-update-notification.png" width="1120" alt="Nimclip update notification">
 </p>
 
 ### About
