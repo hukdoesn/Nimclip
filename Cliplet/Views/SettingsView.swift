@@ -622,7 +622,7 @@ struct NimclipAboutView: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
 
-            Text("版本 \(NimclipBuildInfo.version)（\(NimclipBuildInfo.build)）")
+            Text("版本 \(NimclipBuildInfo.version)")
                 .font(.system(size: 10.5))
                 .foregroundStyle(.tertiary)
                 .monospacedDigit()

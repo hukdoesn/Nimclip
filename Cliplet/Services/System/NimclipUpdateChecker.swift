@@ -4,10 +4,6 @@ enum NimclipBuildInfo {
     static let version = Bundle.main.object(
         forInfoDictionaryKey: "CFBundleShortVersionString"
     ) as? String ?? "开发构建"
-
-    static let build = Bundle.main.object(
-        forInfoDictionaryKey: "CFBundleVersion"
-    ) as? String ?? "-"
 }
 
 struct NimclipAvailableUpdate: Equatable, Sendable {
