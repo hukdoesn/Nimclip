@@ -159,12 +159,3 @@ Nimclip requires macOS 15.0 or later. GitHub Releases include builds for Apple S
 - [Intel (`x86_64`)](https://github.com/hukdoesn/Nimclip/releases/latest)
 
 项目采用 [Apache License 2.0](https://github.com/hukdoesn/Nimclip/blob/main/LICENSE) 开源。
-
-## 开源成长 / Open-source Journey
-
-<figure class="nimclip-shot">
-  <a href="https://www.star-history.com/?repos=hukdoesn%2FNimclip&amp;type=date&amp;legend=top-left">
-    <img src="./images/nimclip-star-history.jpg" alt="Nimclip GitHub star history" loading="lazy">
-  </a>
-  <figcaption>Nimclip Star History</figcaption>
-</figure>

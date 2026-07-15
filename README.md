@@ -111,14 +111,6 @@ Nimclip 基于 [Apache License 2.0](./LICENSE) 开源。修改或重新分发时
 
 项目主页：<https://github.com/hukdoesn/Nimclip>
 
-## Star History
-
-<p align="center">
-  <a href="https://www.star-history.com/?repos=hukdoesn%2FNimclip&amp;type=date&amp;legend=top-left">
-    <img src="./docs/images/nimclip-star-history.jpg" width="864" alt="Nimclip Star History">
-  </a>
-</p>
-
 <div align="center">
   <sub>© 2026 hukdoesn ｜ 胡图图不涂涂</sub>
 </div>
