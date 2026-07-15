@@ -1,7 +1,7 @@
 ---
 title: Nimclip
 description: A native, local-first clipboard history manager for macOS.
-image: /Nimclip/images/nimclip-macbook-themes.png
+image: https://hukdoesn.github.io/Nimclip/images/nimclip-macbook-themes.png
 ---
 
 <style>
