@@ -75,6 +75,14 @@ final class ClipletRenderingTests: XCTestCase {
             )
             XCTAssertGreaterThan(contactData.count, 30_000)
 
+            let supportData = try render(
+                NimclipSupportView(),
+                size: NSSize(width: 470, height: 350),
+                appearanceName: appearanceName,
+                snapshotName: "support-\(appearanceName.rawValue)"
+            )
+            XCTAssertGreaterThan(supportData.count, 30_000)
+
             let textPreviewSize = ClipletPreviewPanelController.preferredSize(
                 kind: .text,
                 imageSize: nil,

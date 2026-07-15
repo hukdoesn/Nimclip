@@ -1,5 +1,7 @@
 import Foundation
 
+private final class NimclipLocalizationBundleToken: NSObject {}
+
 enum NimclipLanguage: String, CaseIterable, Codable, Identifiable, Sendable {
     case simplifiedChinese = "zh-Hans"
     case english = "en"
@@ -21,11 +23,32 @@ enum NimclipLanguage: String, CaseIterable, Codable, Identifiable, Sendable {
         }
     }
 
+    private static let localizationBundle: Bundle = {
+        let candidates = [Bundle.main, Bundle(for: NimclipLocalizationBundleToken.self)]
+            + Bundle.allBundles
+
+        return candidates.first { bundle in
+            bundle.bundleIdentifier == "com.nimclip.app"
+                && bundle.url(forResource: NimclipLanguage.english.rawValue, withExtension: "lproj") != nil
+        } ?? candidates.first { bundle in
+            bundle.url(forResource: NimclipLanguage.english.rawValue, withExtension: "lproj") != nil
+        } ?? .main
+    }()
+
     func localized(_ key: String) -> String {
-        String(
-            localized: String.LocalizationValue(key),
-            bundle: .main,
-            locale: locale
+        guard self != .simplifiedChinese,
+              let localizationURL = Self.localizationBundle.url(
+                  forResource: rawValue,
+                  withExtension: "lproj"
+              ),
+              let languageBundle = Bundle(url: localizationURL) else {
+            return key
+        }
+
+        return languageBundle.localizedString(
+            forKey: key,
+            value: key,
+            table: "Localizable"
         )
     }
 
