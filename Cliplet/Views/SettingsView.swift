@@ -635,6 +635,19 @@ struct NimclipAboutView: View {
                     destination: repositoryURL
                 )
                 Button {
+                    NotificationCenter.default.post(
+                        name: .nimclipCheckForUpdatesRequested,
+                        object: nil
+                    )
+                } label: {
+                    HStack(spacing: 5) {
+                        Text("检查更新")
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 9.5, weight: .semibold))
+                    }
+                }
+                .buttonStyle(NimclipAboutControlStyle())
+                Button {
                     isShowingContact.toggle()
                 } label: {
                     HStack(spacing: 5) {
@@ -1001,14 +1014,4 @@ private struct ClipletSettingsDivider: View {
         Divider()
             .padding(.leading, 30)
     }
-}
-
-private enum NimclipBuildInfo {
-    static let version = Bundle.main.object(
-        forInfoDictionaryKey: "CFBundleShortVersionString"
-    ) as? String ?? "开发构建"
-
-    static let build = Bundle.main.object(
-        forInfoDictionaryKey: "CFBundleVersion"
-    ) as? String ?? "-"
 }

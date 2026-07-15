@@ -17,6 +17,8 @@ public final class ClipboardMonitor {
     private let suppressionToken: PasteboardSuppressionToken
     private var lastChangeCount: Int
     private var pollingTask: Task<Void, Never>?
+    private var pendingReadChangeCount: Int?
+    private var pendingReadAttempts = 0
 
     public init(
         pasteboard: NSPasteboard = .general,
@@ -37,6 +39,8 @@ public final class ClipboardMonitor {
         guard !isRunning else { return }
 
         lastChangeCount = pasteboard.changeCount
+        pendingReadChangeCount = nil
+        pendingReadAttempts = 0
         isRunning = true
         pollingTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
@@ -51,25 +55,52 @@ public final class ClipboardMonitor {
     public func stop() {
         pollingTask?.cancel()
         pollingTask = nil
+        pendingReadChangeCount = nil
+        pendingReadAttempts = 0
         isRunning = false
     }
 
     public func pollNow() {
         let currentChangeCount = pasteboard.changeCount
         guard currentChangeCount != lastChangeCount else { return }
-        lastChangeCount = currentChangeCount
+
+        if pendingReadChangeCount != currentChangeCount {
+            pendingReadChangeCount = currentChangeCount
+            pendingReadAttempts = 0
+        }
 
         if ClipletPasteboardMarker.isPresent(on: pasteboard, token: suppressionToken) {
+            acknowledge(changeCount: currentChangeCount)
             return
         }
         if shouldSuppressCapture?(pasteboard) == true {
+            acknowledge(changeCount: currentChangeCount)
             return
         }
 
-        guard let result = readContent(),
-              pasteboard.changeCount == currentChangeCount else {
+        let readResult = readContent()
+        guard pasteboard.changeCount == currentChangeCount else {
+            pendingReadChangeCount = nil
+            pendingReadAttempts = 0
             return
         }
+
+        let result: CapturedContentResult
+        switch readResult {
+        case let .captured(capturedResult):
+            result = capturedResult
+            acknowledge(changeCount: currentChangeCount)
+        case .temporarilyUnavailable:
+            pendingReadAttempts += 1
+            if pendingReadAttempts >= Self.maximumReadAttempts {
+                acknowledge(changeCount: currentChangeCount)
+            }
+            return
+        case .unsupported:
+            acknowledge(changeCount: currentChangeCount)
+            return
+        }
+
         let source = ClipboardSourceApplication(
             application: NSWorkspace.shared.frontmostApplication
         )
@@ -82,11 +113,43 @@ public final class ClipboardMonitor {
         )
     }
 
-    private func readContent() -> CapturedContentResult? {
-        let archiveResult = readPasteboardArchive()
+    private func acknowledge(changeCount: Int) {
+        lastChangeCount = changeCount
+        pendingReadChangeCount = nil
+        pendingReadAttempts = 0
+    }
+
+    private func readContent() -> ContentReadResult {
+        if let imageType = preferredImageType() {
+            guard let data = pasteboard.data(forType: imageType),
+                  !data.isEmpty else {
+                return .temporarilyUnavailable
+            }
+
+            let archiveResult = readPasteboardArchive()
+            return .captured(
+                CapturedContentResult(
+                    content: .image(
+                        data: data,
+                        typeIdentifier: imageType.rawValue,
+                        archive: archiveResult.archive.flatMap {
+                            archiveRequiringStorage(
+                                $0,
+                                fallbackImageData: data,
+                                typeIdentifier: imageType.rawValue
+                            )
+                        }
+                    ),
+                    // A complete primary image is enough to preserve a screenshot.
+                    // Oversized auxiliary TIFF/PNG representations are optional.
+                    didOmitRepresentations: false
+                )
+            )
+        }
 
         if let text = preferredPlainText(), !text.isEmpty {
-            return CapturedContentResult(
+            let archiveResult = readPasteboardArchive()
+            return .captured(CapturedContentResult(
                 content: .text(
                     text,
                     archive: archiveResult.archive.flatMap {
@@ -94,29 +157,19 @@ public final class ClipboardMonitor {
                     }
                 ),
                 didOmitRepresentations: archiveResult.didOmitRepresentations
-            )
+            ))
         }
 
-        guard let imageType = preferredImageType(),
-              let data = pasteboard.data(forType: imageType),
-              !data.isEmpty else {
-            return nil
+        if containsPotentialTextRepresentation {
+            return .temporarilyUnavailable
         }
+        return .unsupported
+    }
 
-        return CapturedContentResult(
-            content: .image(
-                data: data,
-                typeIdentifier: imageType.rawValue,
-                archive: archiveResult.archive.flatMap {
-                    archiveRequiringStorage(
-                        $0,
-                        fallbackImageData: data,
-                        typeIdentifier: imageType.rawValue
-                    )
-                }
-            ),
-            didOmitRepresentations: archiveResult.didOmitRepresentations
-        )
+    private var containsPotentialTextRepresentation: Bool {
+        let availableTypes = pasteboard.types ?? []
+        let textTypes = Self.directTextTypes + Self.richTextTypes.map(\.pasteboardType)
+        return textTypes.contains { availableTypes.contains($0) }
     }
 
     private func preferredPlainText() -> String? {
@@ -298,6 +351,14 @@ public final class ClipboardMonitor {
         let content: ClipboardCapturedContent
         let didOmitRepresentations: Bool
     }
+
+    private enum ContentReadResult {
+        case captured(CapturedContentResult)
+        case temporarilyUnavailable
+        case unsupported
+    }
+
+    private static let maximumReadAttempts = 6
 
     private struct PasteboardArchiveReadResult {
         let archive: ClipboardPasteboardArchive?

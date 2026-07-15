@@ -22,6 +22,69 @@ final class ClipboardSystemTests: XCTestCase {
         XCTAssertNil(archive, "Pure text should keep the legacy lightweight storage path")
     }
 
+    func testMonitorPrefersImageWhenScreenshotAlsoProvidesText() throws {
+        let pasteboard = NSPasteboard(
+            name: .init("ClipletTests.screenshot-with-text.\(UUID().uuidString)")
+        )
+        let monitor = ClipboardMonitor(pasteboard: pasteboard)
+        var received: ClipboardCapture?
+        monitor.onCapture = { received = $0 }
+
+        let pngData = try XCTUnwrap(
+            Data(
+                base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            )
+        )
+        let sourceItem = NSPasteboardItem()
+        XCTAssertTrue(sourceItem.setString("Screenshot", forType: .string))
+        XCTAssertTrue(sourceItem.setData(pngData, forType: .png))
+        pasteboard.clearContents()
+        XCTAssertTrue(pasteboard.writeObjects([sourceItem]))
+
+        monitor.pollNow()
+
+        guard case let .image(data, typeIdentifier, _) = try XCTUnwrap(received).content else {
+            return XCTFail("Expected screenshot image capture")
+        }
+        XCTAssertEqual(data, pngData)
+        XCTAssertEqual(typeIdentifier, NSPasteboard.PasteboardType.png.rawValue)
+    }
+
+    func testMonitorKeepsPrimaryScreenshotWhenAuxiliaryRepresentationsAreTooLarge() throws {
+        let pasteboard = NSPasteboard(
+            name: .init("ClipletTests.large-screenshot-archive.\(UUID().uuidString)")
+        )
+        let monitor = ClipboardMonitor(pasteboard: pasteboard)
+        var received: ClipboardCapture?
+        monitor.onCapture = { received = $0 }
+
+        let pngData = try XCTUnwrap(
+            Data(
+                base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            )
+        )
+        let sourceItem = NSPasteboardItem()
+        XCTAssertTrue(sourceItem.setData(pngData, forType: .png))
+        XCTAssertTrue(
+            sourceItem.setData(
+                Data(count: ClipboardPasteboardArchive.maximumTotalDataBytes),
+                forType: .init("com.nimclip.tests.oversized-screenshot-metadata")
+            )
+        )
+        pasteboard.clearContents()
+        XCTAssertTrue(pasteboard.writeObjects([sourceItem]))
+
+        monitor.pollNow()
+
+        let capture = try XCTUnwrap(received)
+        XCTAssertFalse(capture.didOmitRepresentations)
+        guard case let .image(data, _, archive) = capture.content else {
+            return XCTFail("Expected the complete primary screenshot to remain available")
+        }
+        XCTAssertEqual(data, pngData)
+        XCTAssertNil(archive, "An incomplete auxiliary archive must not be persisted")
+    }
+
     func testMonitorCapturesRichTextRepresentationsWithoutChangingBytes() throws {
         let pasteboard = NSPasteboard(
             name: .init("ClipletTests.rich-capture.\(UUID().uuidString)")

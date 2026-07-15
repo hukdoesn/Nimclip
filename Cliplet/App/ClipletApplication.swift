@@ -20,8 +20,11 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private let popover = NSPopover()
     private let previewPanelController = ClipletPreviewPanelController()
     private let settingsNavigation = NimclipSettingsNavigation()
+    private let updateChecker = NimclipUpdateChecker()
     private var settingsWindow: NSWindow?
     private var viewModel: ClipletViewModel?
+    private var automaticUpdateTask: Task<Void, Never>?
+    private var isCheckingForUpdates = false
     #if DEBUG
     private var debugPreviewWindow: NSWindow?
     #endif
@@ -47,6 +50,14 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
                 self?.applyAppearance(mode, animated: true)
             }
 
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(checkForUpdatesRequested),
+                name: .nimclipCheckForUpdatesRequested,
+                object: nil
+            )
+            scheduleAutomaticUpdateChecks()
+
             #if DEBUG
             if ProcessInfo.processInfo.environment["CLIPLET_PREVIEW_WINDOW"] == "1" {
                 DispatchQueue.main.async { [weak self] in
@@ -70,6 +81,8 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        automaticUpdateTask?.cancel()
+        NotificationCenter.default.removeObserver(self)
         previewPanelController.hide()
         viewModel?.shutdown()
     }
@@ -95,6 +108,14 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         )
         aboutItem.target = self
         applicationMenu.addItem(aboutItem)
+
+        let updateItem = NSMenuItem(
+            title: "检查更新…",
+            action: #selector(checkForUpdatesFromMenu),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        applicationMenu.addItem(updateItem)
 
         let settingsItem = NSMenuItem(
             title: "设置…",
@@ -284,6 +305,102 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private func showAboutFromMenu() {
         showSettings(pane: .about)
     }
+
+    @objc
+    private func checkForUpdatesFromMenu() {
+        requestUpdateCheck(manual: true)
+    }
+
+    @objc
+    private func checkForUpdatesRequested(_ notification: Notification) {
+        requestUpdateCheck(manual: true)
+    }
+
+    private func requestUpdateCheck(manual: Bool) {
+        Task { @MainActor [weak self] in
+            await self?.checkForUpdates(manual: manual)
+        }
+    }
+
+    private func scheduleAutomaticUpdateChecks() {
+        automaticUpdateTask?.cancel()
+        automaticUpdateTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+
+            while !Task.isCancelled {
+                await self?.checkForUpdates(manual: false)
+                try? await Task.sleep(for: .seconds(6 * 60 * 60))
+            }
+        }
+    }
+
+    private func checkForUpdates(manual: Bool) async {
+        guard !isCheckingForUpdates else { return }
+        isCheckingForUpdates = true
+        defer { isCheckingForUpdates = false }
+
+        do {
+            if let update = try await updateChecker.check() {
+                guard manual || shouldShowAutomaticReminder(for: update.version) else {
+                    return
+                }
+                showUpdateAlert(update)
+            } else if manual {
+                showInformationAlert(
+                    title: "已经是最新版本",
+                    message: "当前版本为 Nimclip \(NimclipBuildInfo.version)。"
+                )
+            }
+        } catch {
+            guard manual else { return }
+            showInformationAlert(
+                title: "暂时无法检查更新",
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private func shouldShowAutomaticReminder(for version: String) -> Bool {
+        let defaults = UserDefaults.standard
+        let savedVersion = defaults.string(forKey: Self.remindedVersionKey)
+        let savedDate = defaults.object(forKey: Self.remindedDateKey) as? Date
+        let canRemindAgain = savedDate.map {
+            Date().timeIntervalSince($0) >= Self.reminderCooldown
+        } ?? true
+
+        guard savedVersion != version || canRemindAgain else { return false }
+        defaults.set(version, forKey: Self.remindedVersionKey)
+        defaults.set(Date(), forKey: Self.remindedDateKey)
+        return true
+    }
+
+    private func showUpdateAlert(_ update: NimclipAvailableUpdate) {
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Nimclip \(update.version) 可用"
+        alert.informativeText = "当前版本为 \(NimclipBuildInfo.version)。升级不会清除保存在这台 Mac 上的历史记录。"
+        alert.addButton(withTitle: "前往下载")
+        alert.addButton(withTitle: "稍后提醒")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(update.releaseURL)
+        }
+    }
+
+    private func showInformationAlert(title: String, message: String) {
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "好")
+        alert.runModal()
+    }
+
+    private static let remindedVersionKey = "NimclipLastRemindedUpdateVersion"
+    private static let remindedDateKey = "NimclipLastRemindedUpdateDate"
+    private static let reminderCooldown: TimeInterval = 24 * 60 * 60
 
     private func showSettings(pane: NimclipSettingsPane = .settings) {
         closePopover()

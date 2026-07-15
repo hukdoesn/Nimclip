@@ -38,7 +38,7 @@ enum ClipboardStoreError: LocalizedError {
 
 @MainActor
 final class ClipboardStore: ObservableObject {
-    static let maximumImageBytes = 10 * 1_048_576
+    static let maximumImageBytes = 128 * 1_048_576
     static let maximumFormattedContentBytes = 12 * 1_048_576
     static let minimumHistoryLimit = 100
     static let maximumHistoryLimit = 5_000
