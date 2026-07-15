@@ -1,0 +1,244 @@
+/* Language */
+"语言" = "Language";
+"应用语言" = "App Language";
+"已切换为%@" = "Switched to %@";
+
+/* General app state and actions */
+"已暂停" = "Paused";
+"记录中" = "Recording";
+"记录已暂停" = "Clipboard recording is paused";
+"暂无记录" = "No Clips Yet";
+"没有匹配结果" = "No Matching Results";
+"%d 条记录" = "Records: %d";
+"%d 项" = "Items: %d";
+"历史" = "History";
+"收藏" = "Favorites";
+"搜索" = "Search";
+"清除搜索" = "Clear Search";
+"设置" = "Settings";
+"打开设置" = "Open Settings";
+"取消" = "Cancel";
+"关闭" = "Close";
+"复制" = "Copy";
+"粘贴" = "Paste";
+"删除" = "Delete";
+"退出" = "Quit";
+"退出 Nimclip" = "Quit Nimclip";
+
+/* Multi-clip */
+"多条拼贴" = "Combine Clips";
+"退出多条拼贴" = "Exit Combine Clips";
+"按顺序选择文本" = "Select text clips in order";
+"已选 %d 条" = "Selected: %d";
+"多条拼贴目前支持文本记录" = "Combine Clips currently supports text clips only";
+"加入多条拼贴" = "Add to Combine Clips";
+"从拼贴中移除" = "Remove from Combine Clips";
+"拼贴顺序 %d" = "Combine order %d";
+"未加入拼贴" = "Not included in Combine Clips";
+"请先选择要拼贴的文本" = "Select the text clips to combine first";
+"已复制 %d 条拼贴内容" = "Copied %d combined clips";
+
+/* Recording and status */
+"继续记录" = "Resume Recording";
+"暂停记录" = "Pause Recording";
+"已暂停记录剪贴板" = "Clipboard recording paused";
+"已恢复记录" = "Clipboard recording resumed";
+"按住 ⌥ 预览" = "Hold ⌥ to preview";
+"Nimclip 已暂停" = "Nimclip is paused";
+"打开 Nimclip" = "Open Nimclip";
+
+/* Clipboard item */
+"全部" = "All";
+"文本" = "Text";
+"链接" = "Link";
+"代码" = "Code";
+"图片" = "Image";
+"空文本" = "Empty Text";
+"未知来源" = "Unknown Source";
+"以纯文本粘贴" = "Paste as Plain Text";
+"复制纯文本" = "Copy Plain Text";
+"打开链接" = "Open Link";
+"收藏" = "Favorite";
+"取消收藏" = "Remove from Favorites";
+"标签" = "Tags";
+"%@，来自 %@" = "%@, from %@";
+"图片完整预览" = "Full Image Preview";
+"完整文本预览" = "Full Text Preview";
+"图片不可用" = "Image Unavailable";
+"原始内容已不可用" = "The original content is no longer available";
+"这条记录没有可用文本" = "This clip has no available text";
+"已复制纯文本" = "Plain text copied";
+"无法打开这个链接" = "This link could not be opened";
+"已打开链接" = "Link opened";
+"已粘贴" = "Pasted";
+"已复制；允许辅助功能权限后可直接粘贴" = "Copied; grant Accessibility permission to paste directly";
+"已复制到剪贴板" = "Copied to the clipboard";
+"已取消收藏" = "Removed from Favorites";
+"已加入收藏" = "Added to Favorites";
+"已删除" = "Deleted";
+
+/* Filters and tags */
+"全部标签" = "All Tags";
+"管理标签…" = "Manage Tags…";
+"按标签筛选" = "Filter by Tag";
+"管理标签" = "Manage Tags";
+"新标签名称" = "New Tag Name";
+"添加标签" = "Add Tag";
+"标签颜色" = "Tag Color";
+"标签颜色，%@" = "Tag color, %@";
+"暂无标签" = "No Tags";
+"标签名称" = "Tag Name";
+"完成" = "Done";
+"重命名" = "Rename";
+"删除标签" = "Delete Tag";
+"标签筛选" = "Tag Filter";
+"标签 %@" = "Tag %@";
+"标签已创建" = "Tag created";
+"标签已删除" = "Tag deleted";
+"标签名称不能为空。" = "The tag name cannot be empty.";
+"已存在同名标签。" = "A tag with this name already exists.";
+"石墨" = "Graphite";
+"岩灰" = "Stone Gray";
+"藏蓝" = "Navy";
+"海蓝" = "Ocean Blue";
+"青蓝" = "Cyan Blue";
+"松青" = "Pine Green";
+"橄榄" = "Olive";
+"赭金" = "Ochre";
+"琥珀" = "Amber";
+"珊瑚" = "Coral";
+"砖红" = "Brick Red";
+"陶褐" = "Clay Brown";
+
+/* Appearance */
+"外观" = "Appearance";
+"浅色" = "Light";
+"深色" = "Dark";
+"始终明亮" = "Always Light";
+"始终深色" = "Always Dark";
+"界面外观" = "Interface Appearance";
+"始终使用%@外观" = "Always use %@ appearance";
+"%@外观" = "%@ appearance";
+"已选择" = "Selected";
+"未选择" = "Not Selected";
+"已切换为%@外观" = "Switched to %@ appearance";
+"切换到%@外观" = "Switch to %@ appearance";
+"外观切换" = "Appearance Switch";
+"当前为%@，点击切换到%@" = "Currently %@; click to switch to %@";
+
+/* Settings */
+"通用" = "General";
+"外观、快捷键、历史记录与粘贴行为" = "Appearance, shortcuts, history, and paste behavior";
+"清空全部历史记录？" = "Clear all clipboard history?";
+"清空历史" = "Clear History";
+"收藏内容会保留。" = "Favorite clips will be kept.";
+"版本 %@" = "Version %@";
+"数据仅保存在这台 Mac" = "Data stays on this Mac";
+"快捷键" = "Keyboard Shortcut";
+"显示 Nimclip" = "Show Nimclip";
+"历史记录" = "Clipboard History";
+"最多保留" = "Maximum Clips";
+"条" = "clips";
+"保留时间" = "Retention Period";
+"天" = "days";
+"登录时启动" = "Launch at Login";
+"历史数据" = "History Data";
+"清空剪贴板历史" = "Clear Clipboard History";
+"直接粘贴" = "Direct Paste";
+"辅助功能" = "Accessibility";
+"系统设置" = "System Settings";
+"已允许直接粘贴" = "Direct paste is enabled";
+"未授权时仅复制" = "Copies only without permission";
+"请在系统设置中允许 Nimclip 登录时启动" = "Allow Nimclip to launch at login in System Settings";
+"历史记录已清空" = "Clipboard history cleared";
+"双击输入精确数值" = "Double-click to enter an exact value";
+"数值" = "Value";
+"%@数值" = "%@ value";
+
+/* Keyboard shortcut */
+"请按下组合键" = "Press a shortcut";
+"按下新快捷键，按 Esc 取消" = "Press a new shortcut, or Esc to cancel";
+"录制全局快捷键" = "Record Global Shortcut";
+"录制全局快捷键，当前为 %@" = "Record global shortcut; currently %@";
+"正在录制" = "Recording";
+"快捷键至少需要一个修饰键" = "The shortcut must include at least one modifier key";
+"快捷键已更新" = "Shortcut updated";
+"Space" = "Space";
+"Return" = "Return";
+"Tab" = "Tab";
+"Delete" = "Delete";
+"Key %d" = "Key %d";
+
+/* About and contact */
+"关于" = "About";
+"轻量、原生、开源的 macOS 剪贴板历史" = "A lightweight, native, open-source clipboard history for macOS";
+"项目主页" = "Project Home";
+"检查更新" = "Check for Updates";
+"联系作者" = "Contact";
+"在默认浏览器中打开项目主页" = "Open the project home in your default browser";
+"使用 macOS 默认浏览器打开" = "Opens with the default macOS browser";
+"选择 GitHub 或微信联系" = "Contact via GitHub or WeChat";
+"通过 GitHub 联系" = "Contact via GitHub";
+"微信联系" = "WeChat";
+"微信二维码，联系人胡图图不涂涂" = "WeChat QR code for 胡图图不涂涂";
+"扫码添加「胡图图不涂涂」" = "Scan to add “胡图图不涂涂”";
+"添加时请备注“Nimclip”，方便识别。" = "Please include “Nimclip” in your request.";
+"赞赏支持" = "Support";
+"如果 Nimclip 对你有帮助，可以请作者喝杯咖啡。" = "If Nimclip helps you, you can buy the author a coffee.";
+"微信支付" = "WeChat Pay";
+"支付宝" = "Alipay";
+"微信支付收款码，收款人胡图图不涂涂" = "WeChat Pay QR code for 胡图图不涂涂";
+"支付宝收款码，收款人胡图图不涂涂" = "Alipay QR code for 胡图图不涂涂";
+"使用微信或支付宝扫码赞赏" = "Scan with WeChat or Alipay to show your support";
+
+/* Timestamps */
+"刚刚" = "Just now";
+"1 分钟前" = "1 minute ago";
+"%d 分钟前" = "%d minutes ago";
+"1 小时前" = "1 hour ago";
+"%d 小时前" = "%d hours ago";
+"1 天前" = "1 day ago";
+"%d 天前" = "%d days ago";
+"%d月%d日" = "%2$d/%1$d";
+"%d年%d月%d日" = "%2$d/%3$d/%1$d";
+
+/* Main menu */
+"Nimclip 无法启动" = "Nimclip Could Not Start";
+"关于 Nimclip" = "About Nimclip";
+"检查更新…" = "Check for Updates…";
+"设置…" = "Settings…";
+"服务" = "Services";
+"隐藏 Nimclip" = "Hide Nimclip";
+"隐藏其他应用" = "Hide Others";
+"全部显示" = "Show All";
+"编辑" = "Edit";
+"撤销" = "Undo";
+"重做" = "Redo";
+"剪切" = "Cut";
+"全选" = "Select All";
+"窗口" = "Window";
+"最小化" = "Minimize";
+"缩放" = "Zoom";
+"前置全部窗口" = "Bring All to Front";
+
+/* Updates */
+"开发构建" = "Development Build";
+"已经是最新版本" = "Nimclip Is Up to Date";
+"当前版本为 Nimclip %@。" = "The current version is Nimclip %@.";
+"暂时无法检查更新" = "Could Not Check for Updates";
+"Nimclip %@ 可用" = "Nimclip %@ Is Available";
+"当前版本为 %@。升级不会清除保存在这台 Mac 上的历史记录。" = "The current version is %@. Updating will not remove history stored on this Mac.";
+"前往下载" = "Download";
+"稍后提醒" = "Remind Me Later";
+"好" = "OK";
+"暂时无法读取版本信息。" = "Version information is temporarily unavailable.";
+"暂时无法连接到更新服务。" = "The update service is temporarily unavailable.";
+
+/* Errors */
+"空白文本不会被记录。" = "Blank text is not recorded.";
+"图片超过 %d MB，未加入历史记录。" = "The image is larger than %d MB and was not added to history.";
+"无法读取这张图片。" = "This image could not be read.";
+"格式数据超过 %d MB，未加入历史记录。" = "The formatted content is larger than %d MB and was not added to history.";
+"无法保存这段内容的原始格式。" = "The original formatting of this content could not be saved.";
+"无法保存剪贴板图片。" = "The clipboard image could not be saved.";
+"原始格式过大或无法完整读取，本次未记录" = "The original format was too large or could not be read completely, so this clip was not recorded";

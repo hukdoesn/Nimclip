@@ -40,6 +40,7 @@ final class ClipletViewModel {
     var onOpenSettingsRequested: (() -> Void)?
     var onStatusChanged: ((Bool) -> Void)?
     var onAppearanceChanged: ((NimclipAppearanceMode) -> Void)?
+    var onLanguageChanged: ((NimclipLanguage) -> Void)?
 
     private let store: ClipboardStore
     private let monitor: ClipboardMonitor
@@ -92,9 +93,11 @@ final class ClipletViewModel {
     }
 
     var statusText: String {
-        if isPaused { return "记录已暂停" }
-        if items.isEmpty { return searchText.isEmpty ? "暂无记录" : "没有匹配结果" }
-        return "\(items.count) 条记录"
+        if isPaused { return localized("记录已暂停") }
+        if items.isEmpty {
+            return localized(searchText.isEmpty ? "暂无记录" : "没有匹配结果")
+        }
+        return localizedFormat("%d 条记录", items.count)
     }
 
     var historyLimit: Int {
@@ -128,10 +131,10 @@ final class ClipletViewModel {
                 try store.updateSettings(launchAtLogin: newValue)
                 revision += 1
                 if launchAtLoginManager.status == .requiresApproval {
-                    showToast("请在系统设置中允许 Nimclip 登录时启动")
+                    showToast(localized("请在系统设置中允许 Nimclip 登录时启动"))
                 }
             } catch {
-                showToast(error.localizedDescription)
+                showToast(localizedDescription(for: error))
                 revision += 1
             }
         }
@@ -150,9 +153,39 @@ final class ClipletViewModel {
                 try store.updateSettings(appearanceMode: newValue)
                 revision += 1
                 onAppearanceChanged?(newValue)
-                showToast("已切换为\(newValue.title)外观")
+                showToast(
+                    localizedFormat(
+                        "已切换为%@外观",
+                        newValue.title(in: language)
+                    )
+                )
             } catch {
-                showToast(error.localizedDescription)
+                showToast(localizedDescription(for: error))
+            }
+        }
+    }
+
+    var language: NimclipLanguage {
+        get {
+            _ = revision
+            return NimclipLanguage(
+                rawValue: store.settings.languageRawValue
+            ) ?? .defaultLanguage
+        }
+        set {
+            guard newValue != language else { return }
+            do {
+                try store.updateSettings(language: newValue)
+                revision += 1
+                onLanguageChanged?(newValue)
+                showToast(
+                    newValue.localizedFormat(
+                        "已切换为%@",
+                        newValue.displayName
+                    )
+                )
+            } catch {
+                showToast(localizedDescription(for: error))
             }
         }
     }
@@ -171,11 +204,15 @@ final class ClipletViewModel {
             keyCode: store.settings.hotKeyKeyCode,
             modifiers: store.settings.hotKeyModifiers
         )
-        return Self.displayParts(for: shortcut)
+        return displayParts(for: shortcut)
     }
 
     var accessibilityStatusText: String {
-        PasteCoordinator.isAccessibilityTrusted() ? "已允许直接粘贴" : "未授权时仅复制"
+        localized(
+            PasteCoordinator.isAccessibilityTrusted()
+                ? "已允许直接粘贴"
+                : "未授权时仅复制"
+        )
     }
 
     func thumbnailURL(for item: ClipboardItem) -> URL? {
@@ -190,10 +227,10 @@ final class ClipletViewModel {
         isPaused.toggle()
         if isPaused {
             monitor.stop()
-            showToast("已暂停记录剪贴板")
+            showToast(localized("已暂停记录剪贴板"))
         } else {
             monitor.start()
-            showToast("已恢复记录")
+            showToast(localized("已恢复记录"))
         }
         onStatusChanged?(isPaused)
     }
@@ -268,7 +305,7 @@ final class ClipletViewModel {
 
     func paste(_ item: ClipboardItem) {
         guard let payload = payload(for: item) else {
-            showToast("原始内容已不可用")
+            showToast(localized("原始内容已不可用"))
             return
         }
 
@@ -277,7 +314,7 @@ final class ClipletViewModel {
 
     func pasteAsPlainText(_ item: ClipboardItem) {
         guard let text = item.text else {
-            showToast("这条记录没有可用文本")
+            showToast(localized("这条记录没有可用文本"))
             return
         }
         paste(.text(text))
@@ -285,10 +322,10 @@ final class ClipletViewModel {
 
     func copyAsPlainText(_ item: ClipboardItem) {
         guard let text = item.text else {
-            showToast("这条记录没有可用文本")
+            showToast(localized("这条记录没有可用文本"))
             return
         }
-        copy(.text(text), success: "已复制纯文本")
+        copy(.text(text), success: localized("已复制纯文本"))
     }
 
     func openLink(_ item: ClipboardItem) {
@@ -296,10 +333,10 @@ final class ClipletViewModel {
               let text = item.text?.trimmingCharacters(in: .whitespacesAndNewlines),
               let url = resolvedURL(from: text),
               NSWorkspace.shared.open(url) else {
-            showToast("无法打开这个链接")
+            showToast(localized("无法打开这个链接"))
             return
         }
-        showToast("已打开链接")
+        showToast(localized("已打开链接"))
     }
 
     func combinedText(for itemIDs: [UUID]) -> String? {
@@ -316,22 +353,25 @@ final class ClipletViewModel {
 
     func copyCombined(_ itemIDs: [UUID]) {
         guard let text = combinedText(for: itemIDs) else {
-            showToast("请先选择要拼贴的文本")
+            showToast(localized("请先选择要拼贴的文本"))
             return
         }
-        copy(.text(text), success: "已复制 \(itemIDs.count) 条拼贴内容")
+        copy(
+            .text(text),
+            success: localizedFormat("已复制 %d 条拼贴内容", itemIDs.count)
+        )
     }
 
     func pasteCombined(_ itemIDs: [UUID]) {
         guard let text = combinedText(for: itemIDs) else {
-            showToast("请先选择要拼贴的文本")
+            showToast(localized("请先选择要拼贴的文本"))
             return
         }
         paste(.text(text))
     }
 
     func showNotice(_ message: String) {
-        showToast(message)
+        showToast(localized(message))
     }
 
     private func paste(_ payload: ClipboardPastePayload) {
@@ -343,33 +383,33 @@ final class ClipletViewModel {
                 }
                 switch result {
                 case .pasted:
-                    showToast("已粘贴")
+                    showToast(localized("已粘贴"))
                 case .copiedOnly:
-                    showToast("已复制；允许辅助功能权限后可直接粘贴")
+                    showToast(localized("已复制；允许辅助功能权限后可直接粘贴"))
                 }
             } catch {
-                showToast(error.localizedDescription)
+                showToast(localizedDescription(for: error))
             }
         }
     }
 
     func copy(_ item: ClipboardItem) {
         guard let payload = payload(for: item) else {
-            showToast("原始内容已不可用")
+            showToast(localized("原始内容已不可用"))
             return
         }
-        copy(payload, success: "已复制到剪贴板")
+        copy(payload, success: localized("已复制到剪贴板"))
     }
 
     func toggleFavorite(_ item: ClipboardItem) {
-        perform(success: item.isFavorite ? "已取消收藏" : "已加入收藏") {
+        perform(success: localized(item.isFavorite ? "已取消收藏" : "已加入收藏")) {
             try store.toggleFavorite(item)
         }
     }
 
     func delete(_ item: ClipboardItem) {
         let deletedID = item.id
-        perform(success: "已删除") {
+        perform(success: localized("已删除")) {
             try store.delete(item)
         }
         if selectedItemID == deletedID {
@@ -384,7 +424,7 @@ final class ClipletViewModel {
     }
 
     func createTag(name: String, colorHex: String = "2F343A") {
-        perform(success: "标签已创建") {
+        perform(success: localized("标签已创建")) {
             try store.createTag(name: name, colorHex: colorHex)
         }
     }
@@ -397,7 +437,7 @@ final class ClipletViewModel {
 
     func deleteTag(_ tag: ClipTag) {
         let deletedID = tag.id
-        perform(success: "标签已删除") {
+        perform(success: localized("标签已删除")) {
             try store.deleteTag(tag)
         }
         if selectedTagID == deletedID {
@@ -406,7 +446,7 @@ final class ClipletViewModel {
     }
 
     func clearHistory() {
-        perform(success: "历史记录已清空") {
+        perform(success: localized("历史记录已清空")) {
             try store.clearHistory(includingFavorites: false)
         }
         selectedItemID = items.first?.id
@@ -428,7 +468,7 @@ final class ClipletViewModel {
 
             let modifiers = Self.carbonModifiers(from: event.modifierFlags)
             guard modifiers != 0 else {
-                showToast("快捷键至少需要一个修饰键")
+                showToast(localized("快捷键至少需要一个修饰键"))
                 return nil
             }
 
@@ -466,7 +506,7 @@ final class ClipletViewModel {
 
     private func ingest(_ capture: ClipboardCapture) {
         guard !capture.didOmitRepresentations else {
-            showToast("原始格式过大或无法完整读取，本次未记录")
+            showToast(localized("原始格式过大或无法完整读取，本次未记录"))
             return
         }
 
@@ -493,7 +533,7 @@ final class ClipletViewModel {
         } catch ClipboardStoreError.emptyText {
             // Empty clipboard strings are intentionally ignored.
         } catch {
-            showToast(error.localizedDescription)
+            showToast(localizedDescription(for: error))
         }
     }
 
@@ -526,7 +566,7 @@ final class ClipletViewModel {
             try pasteCoordinator.copy(payload)
             showToast(success)
         } catch {
-            showToast(error.localizedDescription)
+            showToast(localizedDescription(for: error))
         }
     }
 
@@ -590,13 +630,14 @@ final class ClipletViewModel {
                     hotKeyKeyCode: shortcut.keyCode,
                     hotKeyModifiers: shortcut.modifiers
                 )
-                showToast("快捷键已更新")
+                showToast(localized("快捷键已更新"))
             }
             hotKeyErrorMessage = nil
             revision += 1
         } catch {
-            hotKeyErrorMessage = error.localizedDescription
-            showToast(error.localizedDescription)
+            let message = localizedDescription(for: error)
+            hotKeyErrorMessage = message
+            showToast(message)
         }
     }
 
@@ -607,7 +648,7 @@ final class ClipletViewModel {
             ensureValidSelection()
             if let success { showToast(success) }
         } catch {
-            showToast(error.localizedDescription)
+            showToast(localizedDescription(for: error))
         }
     }
 
@@ -631,7 +672,26 @@ final class ClipletViewModel {
         return value
     }
 
-    private static func displayParts(for shortcut: GlobalHotKeyShortcut) -> [String] {
+    func localized(_ key: String) -> String {
+        language.localized(key)
+    }
+
+    func localizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
+        String(
+            format: language.localized(key),
+            locale: language.locale,
+            arguments: arguments
+        )
+    }
+
+    private func localizedDescription(for error: Error) -> String {
+        if let error = error as? ClipboardStoreError {
+            return error.errorDescription(in: language)
+        }
+        return error.localizedDescription
+    }
+
+    private func displayParts(for shortcut: GlobalHotKeyShortcut) -> [String] {
         var result: [String] = []
         if shortcut.modifiers & UInt32(controlKey) != 0 { result.append("⌃") }
         if shortcut.modifiers & UInt32(optionKey) != 0 { result.append("⌥") }
@@ -641,7 +701,7 @@ final class ClipletViewModel {
         return result
     }
 
-    private static func keyName(for keyCode: UInt32) -> String {
+    private func keyName(for keyCode: UInt32) -> String {
         let names: [UInt32: String] = [
             UInt32(kVK_ANSI_A): "A", UInt32(kVK_ANSI_B): "B",
             UInt32(kVK_ANSI_C): "C", UInt32(kVK_ANSI_D): "D",
@@ -656,9 +716,11 @@ final class ClipletViewModel {
             UInt32(kVK_ANSI_U): "U", UInt32(kVK_ANSI_V): "V",
             UInt32(kVK_ANSI_W): "W", UInt32(kVK_ANSI_X): "X",
             UInt32(kVK_ANSI_Y): "Y", UInt32(kVK_ANSI_Z): "Z",
-            UInt32(kVK_Space): "Space", UInt32(kVK_Return): "Return",
-            UInt32(kVK_Tab): "Tab", UInt32(kVK_Delete): "Delete"
+            UInt32(kVK_Space): localized("Space"),
+            UInt32(kVK_Return): localized("Return"),
+            UInt32(kVK_Tab): localized("Tab"),
+            UInt32(kVK_Delete): localized("Delete")
         ]
-        return names[keyCode] ?? "Key \(keyCode)"
+        return names[keyCode] ?? localizedFormat("Key %d", keyCode)
     }
 }

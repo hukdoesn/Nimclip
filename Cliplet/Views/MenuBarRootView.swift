@@ -33,6 +33,7 @@ struct MenuBarRootView: View {
             }
         }
         .frame(width: 440, height: 600)
+        .environment(\.locale, viewModel.language.locale)
         .background(Color.clipletCanvas)
         .overlay(alignment: .bottom) {
             if let message = viewModel.toastMessage {
@@ -111,7 +112,7 @@ struct MenuBarRootView: View {
                     .fill(viewModel.isPaused ? Color.orange : Color.green)
                     .frame(width: 6, height: 6)
 
-                Text(viewModel.isPaused ? "已暂停" : "记录中")
+                Text(viewModel.localized(viewModel.isPaused ? "已暂停" : "记录中"))
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(.secondary)
 
@@ -125,7 +126,9 @@ struct MenuBarRootView: View {
                 }
                 .buttonStyle(ClipletIconButtonStyle(isActive: isCollectionMode))
                 .help("多条拼贴")
-                .accessibilityLabel(isCollectionMode ? "退出多条拼贴" : "多条拼贴")
+                .accessibilityLabel(
+                    viewModel.localized(isCollectionMode ? "退出多条拼贴" : "多条拼贴")
+                )
 
                 Button(action: viewModel.togglePause) {
                     Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
@@ -134,8 +137,10 @@ struct MenuBarRootView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(ClipletIconButtonStyle(isActive: viewModel.isPaused))
-                .help(viewModel.isPaused ? "继续记录" : "暂停记录")
-                .accessibilityLabel(viewModel.isPaused ? "继续记录" : "暂停记录")
+                .help(viewModel.localized(viewModel.isPaused ? "继续记录" : "暂停记录"))
+                .accessibilityLabel(
+                    viewModel.localized(viewModel.isPaused ? "继续记录" : "暂停记录")
+                )
 
                 Button(action: viewModel.openSettings) {
                     Image(systemName: "gearshape")
@@ -275,6 +280,7 @@ struct MenuBarRootView: View {
                                 thumbnailURL: viewModel.thumbnailURL(for: item),
                                 presentationKind: viewModel.presentationKind(for: item),
                                 referenceDate: viewModel.timestampReferenceDate,
+                                language: viewModel.language,
                                 isSelected: viewModel.selectedItemID == item.id,
                                 isCollectionMode: isCollectionMode,
                                 collectionIndex: collectionIndex(for: item.id),
@@ -310,7 +316,9 @@ struct MenuBarRootView: View {
     private var emptyState: some View {
         ContentUnavailableView {
             Label(
-                viewModel.searchText.isEmpty ? "暂无记录" : "没有匹配结果",
+                viewModel.localized(
+                    viewModel.searchText.isEmpty ? "暂无记录" : "没有匹配结果"
+                ),
                 systemImage: viewModel.selectedSection == .favorites ? "star" : "doc.on.clipboard"
             )
         }
@@ -331,7 +339,11 @@ struct MenuBarRootView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("多条拼贴")
                     .font(.system(size: 11.5, weight: .semibold))
-                Text(collectedItemIDs.isEmpty ? "按顺序选择文本" : "已选 \(collectedItemIDs.count) 条")
+                Text(
+                    collectedItemIDs.isEmpty
+                        ? viewModel.localized("按顺序选择文本")
+                        : viewModel.localizedFormat("已选 %d 条", collectedItemIDs.count)
+                )
                     .font(.system(size: 9.5))
                     .foregroundStyle(.secondary)
             }
@@ -362,7 +374,7 @@ struct MenuBarRootView: View {
 
     private var footer: some View {
         HStack(spacing: 7) {
-            Text("\(viewModel.items.count) 项")
+            Text(viewModel.localizedFormat("%d 项", viewModel.items.count))
                 .foregroundStyle(.tertiary)
                 .monospacedDigit()
 
@@ -377,6 +389,7 @@ struct MenuBarRootView: View {
 
             NimclipAppearanceFooterButton(
                 mode: viewModel.appearanceMode,
+                language: viewModel.language,
                 action: viewModel.toggleAppearance
             )
 
@@ -415,8 +428,8 @@ struct MenuBarRootView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(filter.title)
-        .accessibilityLabel(filter.title)
+        .help(filter.title(in: viewModel.language))
+        .accessibilityLabel(filter.title(in: viewModel.language))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -426,7 +439,7 @@ struct MenuBarRootView: View {
             ? (isSelected ? "star.fill" : "star")
             : "clock.arrow.circlepath"
         return NimclipNavigationTab(
-            title: title,
+            title: viewModel.localized(title),
             systemImage: systemImage,
             isSelected: isSelected,
             isFavorite: section == .favorites
@@ -700,8 +713,13 @@ private struct TagManagementView: View {
                             .contentShape(Circle())
                         }
                         .buttonStyle(.plain)
-                        .help(color.name)
-                        .accessibilityLabel("标签颜色，\(color.name)")
+                        .help(viewModel.localized(color.name))
+                        .accessibilityLabel(
+                            viewModel.localizedFormat(
+                                "标签颜色，%@",
+                                viewModel.localized(color.name)
+                            )
+                        )
                         .accessibilityAddTraits(
                             selectedColor == color.hex ? .isSelected : []
                         )
@@ -747,7 +765,11 @@ private struct TagManagementView: View {
                                         .frame(width: 24, height: 24)
                                 }
                                 .buttonStyle(.plain)
-                                .help(editingTagID == tag.id ? "完成" : "重命名")
+                                .help(
+                                    viewModel.localized(
+                                        editingTagID == tag.id ? "完成" : "重命名"
+                                    )
+                                )
 
                                 Button(role: .destructive) {
                                     viewModel.deleteTag(tag)
@@ -792,6 +814,7 @@ private struct TagManagementView: View {
 
 private struct NimclipAppearanceFooterButton: View {
     let mode: NimclipAppearanceMode
+    let language: NimclipLanguage
     let action: () -> Void
 
     @State private var isHovered = false
@@ -820,9 +843,20 @@ private struct NimclipAppearanceFooterButton: View {
                 isHovered = hovering
             }
         }
-        .help("切换到\(mode.opposite.title)外观")
-        .accessibilityLabel("外观切换")
-        .accessibilityValue("当前为\(mode.title)，点击切换到\(mode.opposite.title)")
+        .help(
+            language.localizedFormat(
+                "切换到%@外观",
+                mode.opposite.title(in: language)
+            )
+        )
+        .accessibilityLabel(language.localized("外观切换"))
+        .accessibilityValue(
+            language.localizedFormat(
+                "当前为%@，点击切换到%@",
+                mode.title(in: language),
+                mode.opposite.title(in: language)
+            )
+        )
     }
 }
 

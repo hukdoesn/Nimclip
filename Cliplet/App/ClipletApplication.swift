@@ -31,11 +31,11 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
-            configureMainMenu()
             NSApplication.shared.applicationIconImage = NSImage(named: "NimclipAppIcon")
             let store = try ClipboardStore()
             let viewModel = ClipletViewModel(store: store)
             self.viewModel = viewModel
+            configureMainMenu()
             applyAppearance(viewModel.appearanceMode, animated: false)
             configureStatusItem()
             configurePopover(with: viewModel)
@@ -48,6 +48,9 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             }
             viewModel.onAppearanceChanged = { [weak self] mode in
                 self?.applyAppearance(mode, animated: true)
+            }
+            viewModel.onLanguageChanged = { [weak self] language in
+                self?.applyLanguage(language)
             }
 
             NotificationCenter.default.addObserver(
@@ -72,9 +75,9 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         } catch {
             let alert = NSAlert()
             alert.alertStyle = .critical
-            alert.messageText = "Nimclip 无法启动"
+            alert.messageText = NimclipLanguage.defaultLanguage.localized("Nimclip 无法启动")
             alert.informativeText = error.localizedDescription
-            alert.addButton(withTitle: "退出")
+            alert.addButton(withTitle: NimclipLanguage.defaultLanguage.localized("退出"))
             alert.runModal()
             NSApplication.shared.terminate(nil)
         }
@@ -102,7 +105,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         applicationMenuItem.submenu = applicationMenu
 
         let aboutItem = NSMenuItem(
-            title: "关于 Nimclip",
+            title: localized("关于 Nimclip"),
             action: #selector(showAboutFromMenu),
             keyEquivalent: ""
         )
@@ -110,7 +113,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         applicationMenu.addItem(aboutItem)
 
         let updateItem = NSMenuItem(
-            title: "检查更新…",
+            title: localized("检查更新…"),
             action: #selector(checkForUpdatesFromMenu),
             keyEquivalent: ""
         )
@@ -118,7 +121,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         applicationMenu.addItem(updateItem)
 
         let settingsItem = NSMenuItem(
-            title: "设置…",
+            title: localized("设置…"),
             action: #selector(showSettingsFromMenu),
             keyEquivalent: ","
         )
@@ -126,70 +129,74 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         applicationMenu.addItem(settingsItem)
         applicationMenu.addItem(.separator())
 
-        let servicesItem = NSMenuItem(title: "服务", action: nil, keyEquivalent: "")
-        let servicesMenu = NSMenu(title: "服务")
+        let servicesItem = NSMenuItem(title: localized("服务"), action: nil, keyEquivalent: "")
+        let servicesMenu = NSMenu(title: localized("服务"))
         servicesItem.submenu = servicesMenu
         applicationMenu.addItem(servicesItem)
         NSApplication.shared.servicesMenu = servicesMenu
         applicationMenu.addItem(.separator())
 
         applicationMenu.addItem(
-            withTitle: "隐藏 Nimclip",
+            withTitle: localized("隐藏 Nimclip"),
             action: #selector(NSApplication.hide(_:)),
             keyEquivalent: "h"
         )
         let hideOthersItem = applicationMenu.addItem(
-            withTitle: "隐藏其他应用",
+            withTitle: localized("隐藏其他应用"),
             action: #selector(NSApplication.hideOtherApplications(_:)),
             keyEquivalent: "h"
         )
         hideOthersItem.keyEquivalentModifierMask = [.command, .option]
         applicationMenu.addItem(
-            withTitle: "全部显示",
+            withTitle: localized("全部显示"),
             action: #selector(NSApplication.unhideAllApplications(_:)),
             keyEquivalent: ""
         )
         applicationMenu.addItem(.separator())
         applicationMenu.addItem(
-            withTitle: "退出 Nimclip",
+            withTitle: localized("退出 Nimclip"),
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )
 
         let editMenuItem = NSMenuItem()
         mainMenu.addItem(editMenuItem)
-        let editMenu = NSMenu(title: "编辑")
+        let editMenu = NSMenu(title: localized("编辑"))
         editMenuItem.submenu = editMenu
-        editMenu.addItem(withTitle: "撤销", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(
+            withTitle: localized("撤销"),
+            action: Selector(("undo:")),
+            keyEquivalent: "z"
+        )
         let redoItem = editMenu.addItem(
-            withTitle: "重做",
+            withTitle: localized("重做"),
             action: Selector(("redo:")),
             keyEquivalent: "z"
         )
         redoItem.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(.separator())
-        editMenu.addItem(withTitle: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "复制", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(withTitle: localized("剪切"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: localized("复制"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: localized("粘贴"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: localized("全选"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
 
         let windowMenuItem = NSMenuItem()
         mainMenu.addItem(windowMenuItem)
-        let windowMenu = NSMenu(title: "窗口")
+        let windowMenu = NSMenu(title: localized("窗口"))
         windowMenuItem.submenu = windowMenu
         windowMenu.addItem(
-            withTitle: "最小化",
+            withTitle: localized("最小化"),
             action: #selector(NSWindow.performMiniaturize(_:)),
             keyEquivalent: "m"
         )
         windowMenu.addItem(
-            withTitle: "缩放",
+            withTitle: localized("缩放"),
             action: #selector(NSWindow.performZoom(_:)),
             keyEquivalent: ""
         )
         windowMenu.addItem(.separator())
         windowMenu.addItem(
-            withTitle: "前置全部窗口",
+            withTitle: localized("前置全部窗口"),
             action: #selector(NSApplication.arrangeInFront(_:)),
             keyEquivalent: ""
         )
@@ -291,6 +298,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
                 imageURL: viewModel.imageURL(for: item),
                 thumbnailURL: viewModel.thumbnailURL(for: item),
                 referenceDate: viewModel.timestampReferenceDate,
+                language: viewModel.language,
                 relativeTo: popover.contentViewController?.view.window
             )
         }
@@ -348,15 +356,18 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
                 showUpdateAlert(update)
             } else if manual {
                 showInformationAlert(
-                    title: "已经是最新版本",
-                    message: "当前版本为 Nimclip \(NimclipBuildInfo.version)。"
+                    title: localized("已经是最新版本"),
+                    message: localizedFormat(
+                        "当前版本为 Nimclip %@。",
+                        NimclipBuildInfo.version
+                    )
                 )
             }
         } catch {
             guard manual else { return }
             showInformationAlert(
-                title: "暂时无法检查更新",
-                message: error.localizedDescription
+                title: localized("暂时无法检查更新"),
+                message: localizedDescription(for: error)
             )
         }
     }
@@ -379,10 +390,13 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         NSApplication.shared.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "Nimclip \(update.version) 可用"
-        alert.informativeText = "当前版本为 \(NimclipBuildInfo.version)。升级不会清除保存在这台 Mac 上的历史记录。"
-        alert.addButton(withTitle: "前往下载")
-        alert.addButton(withTitle: "稍后提醒")
+        alert.messageText = localizedFormat("Nimclip %@ 可用", update.version)
+        alert.informativeText = localizedFormat(
+            "当前版本为 %@。升级不会清除保存在这台 Mac 上的历史记录。",
+            NimclipBuildInfo.version
+        )
+        alert.addButton(withTitle: localized("前往下载"))
+        alert.addButton(withTitle: localized("稍后提醒"))
         if alert.runModal() == .alertFirstButtonReturn {
             NSWorkspace.shared.open(update.releaseURL)
         }
@@ -394,7 +408,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         alert.alertStyle = .informational
         alert.messageText = title
         alert.informativeText = message
-        alert.addButton(withTitle: "好")
+        alert.addButton(withTitle: localized("好"))
         alert.runModal()
     }
 
@@ -434,7 +448,9 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private func updateStatusItem(isPaused: Bool) {
         statusItem?.button?.image = makeStatusImage()
         statusItem?.button?.alphaValue = isPaused ? 0.45 : 1
-        statusItem?.button?.toolTip = isPaused ? "Nimclip 已暂停" : "Nimclip · ⌘⇧V"
+        statusItem?.button?.toolTip = isPaused
+            ? localized("Nimclip 已暂停")
+            : "Nimclip · ⌘⇧V"
     }
 
     private func makeStatusImage() -> NSImage? {
@@ -444,8 +460,37 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         }
         image.size = NSSize(width: 18, height: 18)
         image.isTemplate = true
-        image.accessibilityDescription = "打开 Nimclip"
+        image.accessibilityDescription = localized("打开 Nimclip")
         return image
+    }
+
+    private var language: NimclipLanguage {
+        viewModel?.language ?? .defaultLanguage
+    }
+
+    private func localized(_ key: String) -> String {
+        language.localized(key)
+    }
+
+    private func localizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
+        String(
+            format: language.localized(key),
+            locale: language.locale,
+            arguments: arguments
+        )
+    }
+
+    private func localizedDescription(for error: Error) -> String {
+        if let error = error as? NimclipUpdateCheckError {
+            return error.errorDescription(in: language)
+        }
+        return error.localizedDescription
+    }
+
+    private func applyLanguage(_ language: NimclipLanguage) {
+        configureMainMenu()
+        updateStatusItem(isPaused: viewModel?.isPaused ?? false)
+        previewPanelController.hide()
     }
 
     #if DEBUG

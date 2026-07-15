@@ -16,11 +16,15 @@ enum ClipboardPresentationKind: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
 
     var title: String {
+        title(in: .defaultLanguage)
+    }
+
+    func title(in language: NimclipLanguage) -> String {
         switch self {
-        case .text: "文本"
-        case .link: "链接"
-        case .code: "代码"
-        case .image: "图片"
+        case .text: language.localized("文本")
+        case .link: language.localized("链接")
+        case .code: language.localized("代码")
+        case .image: language.localized("图片")
         }
     }
 
@@ -101,12 +105,16 @@ enum ClipboardContentFilter: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
 
     var title: String {
+        title(in: .defaultLanguage)
+    }
+
+    func title(in language: NimclipLanguage) -> String {
         switch self {
-        case .all: "全部"
-        case .text: "文本"
-        case .link: "链接"
-        case .code: "代码"
-        case .image: "图片"
+        case .all: language.localized("全部")
+        case .text: language.localized("文本")
+        case .link: language.localized("链接")
+        case .code: language.localized("代码")
+        case .image: language.localized("图片")
         }
     }
 

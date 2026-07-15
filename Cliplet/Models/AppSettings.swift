@@ -15,6 +15,7 @@ final class AppSettings {
     var launchAtLogin: Bool
     var appearanceModeRawValue: String = "dark"
     var hasExplicitAppearanceSelection: Bool = false
+    var languageRawValue: String = NimclipLanguage.defaultLanguage.rawValue
     var createdAt: Date
     var updatedAt: Date
 
@@ -27,6 +28,7 @@ final class AppSettings {
         launchAtLogin: Bool = false,
         appearanceMode: NimclipAppearanceMode = .defaultMode,
         hasExplicitAppearanceSelection: Bool = false,
+        language: NimclipLanguage = .defaultLanguage,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -38,6 +40,7 @@ final class AppSettings {
         self.launchAtLogin = launchAtLogin
         self.appearanceModeRawValue = appearanceMode.rawValue
         self.hasExplicitAppearanceSelection = hasExplicitAppearanceSelection
+        self.languageRawValue = language.rawValue
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

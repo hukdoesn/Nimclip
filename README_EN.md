@@ -11,7 +11,11 @@
 </div>
 
 <p align="center">
-  <img src="./docs/images/nimclip-macbook-themes.png" width="1120" alt="Nimclip in light and dark themes">
+  <a href="./docs/images/nimclip-menu-light@2x.png"><img src="./docs/images/nimclip-menu-light@2x.png" width="420" alt="Nimclip main window in light mode"></a>
+  <a href="./docs/images/nimclip-menu-dark@2x.png"><img src="./docs/images/nimclip-menu-dark@2x.png" width="420" alt="Nimclip main window in dark mode"></a>
+</p>
+<p align="center">
+  <sub>Light and dark themes · Click an image to view the full @2x capture</sub>
 </p>
 
 ## What is Nimclip?
@@ -27,6 +31,7 @@ Nimclip is a free and open-source, native, local-first clipboard history manager
 - Plain-text paste and multi-item merging
 - Configurable history limits and retention periods
 - Independent light and dark appearances
+- Instant in-app language switching between Simplified Chinese and English
 - Customizable global shortcut and launch at login
 
 ## Interface
@@ -36,15 +41,17 @@ Nimclip is a free and open-source, native, local-first clipboard history manager
 Images appear as thumbnails in clipboard history and can be opened in a full preview. Long text also supports a separate, scrollable preview.
 
 <p align="center">
-  <img src="./docs/images/nimclip-image-preview-real.png" width="780" alt="Nimclip image preview">
+  <a href="./docs/images/nimclip-image-preview-light@2x.png"><img src="./docs/images/nimclip-image-preview-light@2x.png" width="420" alt="Nimclip image preview in light mode"></a>
+  <a href="./docs/images/nimclip-image-preview-dark@2x.png"><img src="./docs/images/nimclip-image-preview-dark@2x.png" width="420" alt="Nimclip image preview in dark mode"></a>
 </p>
 
 ### Settings
 
-Configure the appearance, global shortcut, history limit, retention period, and launch-at-login behavior.
+Configure the app language, appearance, global shortcut, history limit, retention period, and launch-at-login behavior.
 
 <p align="center">
-  <img src="./docs/images/nimclip-settings-themes.png" width="1120" alt="Nimclip settings in light and dark themes">
+  <a href="./docs/images/nimclip-settings-light@2x.png"><img src="./docs/images/nimclip-settings-light@2x.png" width="420" alt="Nimclip settings in light mode"></a>
+  <a href="./docs/images/nimclip-settings-dark@2x.png"><img src="./docs/images/nimclip-settings-dark@2x.png" width="420" alt="Nimclip settings in dark mode"></a>
 </p>
 
 ### Update notifications
@@ -52,8 +59,12 @@ Configure the appearance, global shortcut, history limit, retention period, and 
 Nimclip can notify you when a new version is available. Updating the app does not remove clipboard history stored on your Mac.
 
 <p align="center">
-  <img src="./docs/images/nimclip-update-notification.png" width="1120" alt="Nimclip update notification">
+  <a href="./docs/images/nimclip-update-notification.png"><img src="./docs/images/nimclip-update-notification.png" width="887" alt="Nimclip update notification"></a>
 </p>
+
+### About
+
+The About page includes the version, open-source license, project home, contact options, and a Support entry. Support displays the WeChat Pay and Alipay QR codes inside Nimclip.
 
 ## Privacy and storage
 
@@ -66,6 +77,24 @@ Nimclip persists clipboard history locally with SwiftData and SQLite. Your histo
 - Favorites are never removed automatically
 - History and settings: `~/Library/Application Support/Cliplet.store`
 - Images: `~/Library/Application Support/Cliplet/ClipboardImages/`
+
+## Support
+
+Nimclip is free and open source, and every feature remains free to use. If it helps you, you can optionally buy the author a coffee.
+
+<table align="center">
+  <tr>
+    <th>WeChat Pay</th>
+    <th>Alipay</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="./docs/images/nimclip-wechat-pay.png" width="260" alt="WeChat Pay QR code for 胡图图不涂涂"></td>
+    <td align="center"><img src="./docs/images/nimclip-alipay.png" width="260" alt="Alipay QR code for 胡图图不涂涂"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2">Recipient: 胡图图不涂涂</td>
+  </tr>
+</table>
 
 ## Installation
 
@@ -103,5 +132,5 @@ Nimclip is open source under the [Apache License 2.0](./LICENSE). Modified or re
 Project home: <https://github.com/hukdoesn/Nimclip>
 
 <div align="center">
-  <sub>© 2026 hukdoesn</sub>
+  <sub>© 2026 hukdoesn ｜ 胡图图不涂涂</sub>
 </div>

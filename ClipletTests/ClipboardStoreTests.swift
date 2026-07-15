@@ -287,7 +287,8 @@ final class ClipboardStoreTests: XCTestCase {
         try fixture.store.updateSettings(
             historyLimit: 123,
             retentionDays: 42,
-            appearanceMode: .light
+            appearanceMode: .light,
+            language: .english
         )
         XCTAssertEqual(fixture.store.settings.historyLimit, 123)
         XCTAssertEqual(fixture.store.settings.retentionDays, 42)
@@ -296,6 +297,10 @@ final class ClipboardStoreTests: XCTestCase {
             NimclipAppearanceMode.light.rawValue
         )
         XCTAssertTrue(fixture.store.settings.hasExplicitAppearanceSelection)
+        XCTAssertEqual(
+            fixture.store.settings.languageRawValue,
+            NimclipLanguage.english.rawValue
+        )
 
         try fixture.store.updateSettings(historyLimit: 1, retentionDays: 999)
         XCTAssertEqual(fixture.store.settings.historyLimit, ClipboardStore.minimumHistoryLimit)
@@ -323,6 +328,28 @@ final class ClipboardStoreTests: XCTestCase {
             NimclipAppearanceMode.light.rawValue
         )
         XCTAssertTrue(reopenedStore.settings.hasExplicitAppearanceSelection)
+    }
+
+    func testLanguagePersistsWhenStoreIsReopened() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipletLanguageTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeURL = directory.appendingPathComponent("language.store")
+        do {
+            let store = try makeDiskStore(storeURL: storeURL, directory: directory)
+            try store.updateSettings(language: .english)
+        }
+
+        let reopenedStore = try makeDiskStore(storeURL: storeURL, directory: directory)
+        XCTAssertEqual(
+            reopenedStore.settings.languageRawValue,
+            NimclipLanguage.english.rawValue
+        )
     }
 
     func testUntouchedLegacyDefaultMigratesWithoutOverwritingAUserChoice() throws {

@@ -15,23 +15,33 @@ enum ClipboardStoreError: LocalizedError {
     case fileOperationFailed
 
     var errorDescription: String? {
+        errorDescription(in: .defaultLanguage)
+    }
+
+    func errorDescription(in language: NimclipLanguage) -> String {
         switch self {
         case .emptyText:
-            return "空白文本不会被记录。"
+            return language.localized("空白文本不会被记录。")
         case let .imageTooLarge(maximumBytes):
-            return "图片超过 \(maximumBytes / 1_048_576) MB，未加入历史记录。"
+            return language.localizedFormat(
+                "图片超过 %d MB，未加入历史记录。",
+                maximumBytes / 1_048_576
+            )
         case .invalidImageData:
-            return "无法读取这张图片。"
+            return language.localized("无法读取这张图片。")
         case let .formattedContentTooLarge(maximumBytes):
-            return "格式数据超过 \(maximumBytes / 1_048_576) MB，未加入历史记录。"
+            return language.localizedFormat(
+                "格式数据超过 %d MB，未加入历史记录。",
+                maximumBytes / 1_048_576
+            )
         case .invalidFormattedContent:
-            return "无法保存这段内容的原始格式。"
+            return language.localized("无法保存这段内容的原始格式。")
         case .invalidTagName:
-            return "标签名称不能为空。"
+            return language.localized("标签名称不能为空。")
         case .duplicateTagName:
-            return "已存在同名标签。"
+            return language.localized("已存在同名标签。")
         case .fileOperationFailed:
-            return "无法保存剪贴板图片。"
+            return language.localized("无法保存剪贴板图片。")
         }
     }
 }
@@ -395,7 +405,8 @@ final class ClipboardStore: ObservableObject {
         hotKeyKeyCode: UInt32? = nil,
         hotKeyModifiers: UInt32? = nil,
         launchAtLogin: Bool? = nil,
-        appearanceMode: NimclipAppearanceMode? = nil
+        appearanceMode: NimclipAppearanceMode? = nil,
+        language: NimclipLanguage? = nil
     ) throws {
         let shouldEnforceRetention = historyLimit != nil || retentionDays != nil
 
@@ -423,6 +434,9 @@ final class ClipboardStore: ObservableObject {
         if let appearanceMode {
             settings.appearanceModeRawValue = appearanceMode.rawValue
             settings.hasExplicitAppearanceSelection = true
+        }
+        if let language {
+            settings.languageRawValue = language.rawValue
         }
         try saveSettings(enforcingRetention: shouldEnforceRetention)
     }

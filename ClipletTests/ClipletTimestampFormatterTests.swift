@@ -17,11 +17,21 @@ final class ClipletTimestampFormatterTests: XCTestCase {
         XCTAssertEqual(formatted(secondsAgo: 86_400), "1 天前")
     }
 
-    private func formatted(secondsAgo: TimeInterval) -> String {
+    func testEnglishTimestampsUseEnglishUnits() {
+        XCTAssertEqual(formatted(secondsAgo: 60, language: .english), "1 minute ago")
+        XCTAssertEqual(formatted(secondsAgo: 7_200, language: .english), "2 hours ago")
+        XCTAssertEqual(formatted(secondsAgo: 172_800, language: .english), "2 days ago")
+    }
+
+    private func formatted(
+        secondsAgo: TimeInterval,
+        language: NimclipLanguage = .defaultLanguage
+    ) -> String {
         ClipletTimestampFormatter.string(
             for: referenceDate.addingTimeInterval(-secondsAgo),
             relativeTo: referenceDate,
-            calendar: Calendar(identifier: .gregorian)
+            calendar: Calendar(identifier: .gregorian),
+            language: language
         )
     }
 }

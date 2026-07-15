@@ -8,6 +8,7 @@ struct ClipboardItemRow: View {
     let thumbnailURL: URL?
     let presentationKind: ClipboardPresentationKind
     let referenceDate: Date
+    let language: NimclipLanguage
     let isSelected: Bool
     let isCollectionMode: Bool
     let collectionIndex: Int?
@@ -26,16 +27,16 @@ struct ClipboardItemRow: View {
     @State private var isHovered = false
 
     private var textPreview: String {
-        guard let text = item.text else { return "空文本" }
+        guard let text = item.text else { return language.localized("空文本") }
         let normalized = String(text.prefix(800))
             .replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return normalized.isEmpty ? "空文本" : normalized
+        return normalized.isEmpty ? language.localized("空文本") : normalized
     }
 
     private var sourceName: String {
         guard let sourceAppName = item.sourceAppName, !sourceAppName.isEmpty else {
-            return "未知来源"
+            return language.localized("未知来源")
         }
         return sourceAppName
     }
@@ -75,12 +76,16 @@ struct ClipboardItemRow: View {
                     Text(
                         ClipletTimestampFormatter.string(
                             for: item.updatedAt,
-                            relativeTo: referenceDate
+                            relativeTo: referenceDate,
+                            language: language
                         )
                     )
                         .monospacedDigit()
 
-                    Label(presentationKind.title, systemImage: presentationKind.systemImage)
+                    Label(
+                        presentationKind.title(in: language),
+                        systemImage: presentationKind.systemImage
+                    )
                         .labelStyle(.titleAndIcon)
 
                     if let firstTag = item.tags.first {
@@ -113,7 +118,11 @@ struct ClipboardItemRow: View {
                     }
                 }
                 .frame(width: 23, height: 23)
-                .accessibilityLabel(isCollected ? "拼贴顺序 \(collectionIndex ?? 0)" : "未加入拼贴")
+                .accessibilityLabel(
+                    isCollected
+                        ? language.localizedFormat("拼贴顺序 %d", collectionIndex ?? 0)
+                        : language.localized("未加入拼贴")
+                )
             } else {
                 HStack(spacing: 1) {
                     if item.kind == .text {
@@ -155,8 +164,10 @@ struct ClipboardItemRow: View {
                     }
                     .buttonStyle(ClipletQuietIconButtonStyle())
                     .opacity(item.isFavorite || isHovered || isSelected ? 1 : 0)
-                    .help(item.isFavorite ? "取消收藏" : "收藏")
-                    .accessibilityLabel(item.isFavorite ? "取消收藏" : "收藏")
+                    .help(language.localized(item.isFavorite ? "取消收藏" : "收藏"))
+                    .accessibilityLabel(
+                        language.localized(item.isFavorite ? "取消收藏" : "收藏")
+                    )
                 }
             }
         }
@@ -196,8 +207,11 @@ struct ClipboardItemRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
         .accessibilityAddTraits(isSelected || isCollected ? .isSelected : [])
-        .accessibilityAction(named: "粘贴", onPaste)
-        .accessibilityAction(named: item.isFavorite ? "取消收藏" : "收藏", onToggleFavorite)
+        .accessibilityAction(named: language.localized("粘贴"), onPaste)
+        .accessibilityAction(
+            named: language.localized(item.isFavorite ? "取消收藏" : "收藏"),
+            onToggleFavorite
+        )
     }
 
     @ViewBuilder
@@ -277,7 +291,7 @@ struct ClipboardItemRow: View {
             }
             Button(action: onToggleCollection) {
                 Label(
-                    isCollected ? "从拼贴中移除" : "加入多条拼贴",
+                    language.localized(isCollected ? "从拼贴中移除" : "加入多条拼贴"),
                     systemImage: isCollected ? "minus.circle" : "rectangle.stack.badge.plus"
                 )
             }
@@ -288,7 +302,10 @@ struct ClipboardItemRow: View {
             }
         }
         Button(action: onToggleFavorite) {
-            Label(item.isFavorite ? "取消收藏" : "收藏", systemImage: item.isFavorite ? "star.slash" : "star")
+            Label(
+                language.localized(item.isFavorite ? "取消收藏" : "收藏"),
+                systemImage: item.isFavorite ? "star.slash" : "star"
+            )
         }
 
         if !tags.isEmpty {
@@ -312,8 +329,8 @@ struct ClipboardItemRow: View {
     }
 
     private var accessibilityDescription: String {
-        let content = item.kind == .image ? "图片" : textPreview
-        return "\(content)，来自 \(sourceName)"
+        let content = item.kind == .image ? language.localized("图片") : textPreview
+        return language.localizedFormat("%@，来自 %@", content, sourceName)
     }
 
     private func hasTag(_ tag: ClipTag) -> Bool {
@@ -405,6 +422,7 @@ struct ClipboardItemExpandedPreview: View {
     let imageURL: URL?
     let thumbnailURL: URL?
     let referenceDate: Date
+    let language: NimclipLanguage
     let previewSize: CGSize
     let onHoverChange: (Bool) -> Void
 
@@ -415,6 +433,7 @@ struct ClipboardItemExpandedPreview: View {
         imageURL: URL?,
         thumbnailURL: URL?,
         referenceDate: Date,
+        language: NimclipLanguage = .defaultLanguage,
         previewSize: CGSize = CGSize(width: 372, height: 438),
         onHoverChange: @escaping (Bool) -> Void = { _ in }
     ) {
@@ -422,19 +441,22 @@ struct ClipboardItemExpandedPreview: View {
         self.imageURL = imageURL
         self.thumbnailURL = thumbnailURL
         self.referenceDate = referenceDate
+        self.language = language
         self.previewSize = previewSize
         self.onHoverChange = onHoverChange
     }
 
     private var sourceName: String {
         guard let sourceAppName = item.sourceAppName, !sourceAppName.isEmpty else {
-            return "未知来源"
+            return language.localized("未知来源")
         }
         return sourceAppName
     }
 
     private var fullText: String {
-        guard let text = item.text, !text.isEmpty else { return "空文本" }
+        guard let text = item.text, !text.isEmpty else {
+            return language.localized("空文本")
+        }
         return text
     }
 
@@ -469,6 +491,7 @@ struct ClipboardItemExpandedPreview: View {
             content
         }
         .frame(width: previewSize.width, height: previewSize.height)
+        .environment(\.locale, language.locale)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         .overlay {
@@ -478,7 +501,9 @@ struct ClipboardItemExpandedPreview: View {
         .shadow(color: .black.opacity(0.20), radius: 18, y: 8)
         .onHover(perform: onHoverChange)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(item.kind == .image ? "图片完整预览" : "完整文本预览")
+        .accessibilityLabel(
+            language.localized(item.kind == .image ? "图片完整预览" : "完整文本预览")
+        )
     }
 
     private var previewBar: some View {
@@ -502,7 +527,7 @@ struct ClipboardItemExpandedPreview: View {
             Text("·")
                 .foregroundStyle(.tertiary)
 
-            Text(presentationKind.title)
+            Text(presentationKind.title(in: language))
                 .font(.system(size: 10.5))
                 .foregroundStyle(.secondary)
 
@@ -529,7 +554,8 @@ struct ClipboardItemExpandedPreview: View {
             Text(
                 ClipletTimestampFormatter.string(
                     for: item.updatedAt,
-                    relativeTo: referenceDate
+                    relativeTo: referenceDate,
+                    language: language
                 )
             )
             .font(.system(size: 10.5))
@@ -622,14 +648,16 @@ private enum ClipletPreviewImageCache {
 struct ClipletTagFilterBar: View {
     let tags: [ClipTag]
     @Binding var selection: UUID?
+    var language: NimclipLanguage = .defaultLanguage
 
     var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 3) {
                 ClipletTagFilterButton(
-                    title: "全部",
+                    title: language.localized("全部"),
                     color: nil,
-                    isSelected: selection == nil
+                    isSelected: selection == nil,
+                    language: language
                 ) {
                     selection = nil
                 }
@@ -638,7 +666,8 @@ struct ClipletTagFilterBar: View {
                     ClipletTagFilterButton(
                         title: tag.name,
                         color: Color(clipletHex: tag.colorHex),
-                        isSelected: selection == tag.id
+                        isSelected: selection == tag.id,
+                        language: language
                     ) {
                         selection = tag.id
                     }
@@ -647,7 +676,7 @@ struct ClipletTagFilterBar: View {
         }
         .scrollIndicators(.hidden)
         .frame(height: 28)
-        .accessibilityLabel("标签筛选")
+        .accessibilityLabel(language.localized("标签筛选"))
     }
 }
 
@@ -655,6 +684,7 @@ private struct ClipletTagFilterButton: View {
     let title: String
     let color: Color?
     let isSelected: Bool
+    let language: NimclipLanguage
     let action: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -695,7 +725,7 @@ private struct ClipletTagFilterButton: View {
                 isHovered = hovering
             }
         }
-        .accessibilityLabel("标签 \(title)")
+        .accessibilityLabel(language.localizedFormat("标签 %@", title))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

@@ -42,6 +42,7 @@ struct SettingsView: View {
 
                         ScrollView {
                             VStack(alignment: .leading, spacing: 18) {
+                                languageSection
                                 appearanceSection
                                 shortcutSection
                                 historySection
@@ -58,6 +59,7 @@ struct SettingsView: View {
             }
         }
         .frame(width: 660, height: 520)
+        .environment(\.locale, viewModel.language.locale)
         .background(Color.clipletCanvas)
         .tint(Color.clipletSelection)
         .overlay(alignment: .bottom) {
@@ -151,7 +153,10 @@ struct SettingsView: View {
         .background(Color.clipletSidebar)
     }
 
-    private func pageHeader(title: String, subtitle: String) -> some View {
+    private func pageHeader(
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey
+    ) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.system(size: 19, weight: .semibold))
@@ -164,10 +169,27 @@ struct SettingsView: View {
         .background(Color.clipletCanvas)
     }
 
+    private var languageSection: some View {
+        ClipletSettingsSection(title: "语言") {
+            ClipletSettingsRow("应用语言", systemImage: "globe") {
+                Picker("应用语言", selection: $viewModel.language) {
+                    ForEach(NimclipLanguage.allCases) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(width: 148)
+                .accessibilityLabel("应用语言")
+            }
+        }
+    }
+
     private var appearanceSection: some View {
         ClipletSettingsSection(title: "外观") {
             NimclipAppearancePicker(
                 selection: viewModel.appearanceMode,
+                language: viewModel.language,
                 onSelect: { viewModel.appearanceMode = $0 }
             )
             .padding(.vertical, 11)
@@ -181,6 +203,7 @@ struct SettingsView: View {
                     keys: viewModel.hotKeyDisplayParts,
                     display: viewModel.hotKeyDisplay,
                     isRecording: viewModel.isRecordingHotKey,
+                    language: viewModel.language,
                     action: viewModel.beginHotKeyRecording
                 )
             }
@@ -203,8 +226,8 @@ struct SettingsView: View {
                     value: $viewModel.historyLimit,
                     range: ClipboardStore.minimumHistoryLimit...ClipboardStore.maximumHistoryLimit,
                     step: 100,
-                    unit: "条",
-                    accessibilityName: "最多保留"
+                    unit: viewModel.localized("条"),
+                    accessibilityName: viewModel.localized("最多保留")
                 )
             }
 
@@ -215,8 +238,8 @@ struct SettingsView: View {
                     value: $viewModel.retentionDays,
                     range: ClipboardStore.minimumRetentionDays...ClipboardStore.maximumRetentionDays,
                     step: 1,
-                    unit: "天",
-                    accessibilityName: "保留时间"
+                    unit: viewModel.localized("天"),
+                    accessibilityName: viewModel.localized("保留时间")
                 )
             }
         }
@@ -261,6 +284,7 @@ struct SettingsView: View {
 
 private struct NimclipAppearancePicker: View {
     let selection: NimclipAppearanceMode
+    let language: NimclipLanguage
     let onSelect: (NimclipAppearanceMode) -> Void
 
     var body: some View {
@@ -269,6 +293,7 @@ private struct NimclipAppearancePicker: View {
                 NimclipAppearanceOption(
                     mode: mode,
                     isSelected: selection == mode,
+                    language: language,
                     action: { onSelect(mode) }
                 )
             }
@@ -281,6 +306,7 @@ private struct NimclipAppearancePicker: View {
 private struct NimclipAppearanceOption: View {
     let mode: NimclipAppearanceMode
     let isSelected: Bool
+    let language: NimclipLanguage
     let action: () -> Void
 
     @State private var isHovered = false
@@ -302,9 +328,9 @@ private struct NimclipAppearanceOption: View {
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(mode.title)
+                    Text(mode.title(in: language))
                         .font(.system(size: 12.5, weight: .medium))
-                    Text(mode.detail)
+                    Text(mode.detail(in: language))
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -336,9 +362,16 @@ private struct NimclipAppearanceOption: View {
                 isHovered = hovering
             }
         }
-        .help("始终使用\(mode.title)外观")
-        .accessibilityLabel("\(mode.title)外观")
-        .accessibilityValue(isSelected ? "已选择" : "未选择")
+        .help(
+            language.localizedFormat(
+                "始终使用%@外观",
+                mode.title(in: language)
+            )
+        )
+        .accessibilityLabel(
+            language.localizedFormat("%@外观", mode.title(in: language))
+        )
+        .accessibilityValue(language.localized(isSelected ? "已选择" : "未选择"))
     }
 
     private var backgroundOpacity: Double {
@@ -378,6 +411,7 @@ private struct NimclipShortcutRecorderButton: View {
     let keys: [String]
     let display: String
     let isRecording: Bool
+    let language: NimclipLanguage
     let action: () -> Void
 
     @State private var isHovered = false
@@ -414,9 +448,15 @@ private struct NimclipShortcutRecorderButton: View {
                 isHovered = hovering
             }
         }
-        .help(isRecording ? "按下新快捷键，按 Esc 取消" : "录制全局快捷键")
-        .accessibilityLabel("录制全局快捷键，当前为 \(display)")
-        .accessibilityValue(isRecording ? "正在录制" : display)
+        .help(
+            language.localized(
+                isRecording ? "按下新快捷键，按 Esc 取消" : "录制全局快捷键"
+            )
+        )
+        .accessibilityLabel(
+            language.localizedFormat("录制全局快捷键，当前为 %@", display)
+        )
+        .accessibilityValue(isRecording ? language.localized("正在录制") : display)
     }
 }
 
@@ -487,7 +527,7 @@ enum NimclipSettingsPane: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
-    var title: String {
+    var title: LocalizedStringKey {
         switch self {
         case .settings:
             return "设置"
@@ -591,6 +631,7 @@ private struct NimclipEditableStepper: View {
 struct NimclipAboutView: View {
     private let repositoryURL = URL(string: "https://github.com/hukdoesn/Nimclip")!
     @State private var isShowingContact = false
+    @State private var isShowingSupport = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -648,6 +689,7 @@ struct NimclipAboutView: View {
                 }
                 .buttonStyle(NimclipAboutControlStyle())
                 Button {
+                    isShowingSupport = false
                     isShowingContact.toggle()
                 } label: {
                     HStack(spacing: 5) {
@@ -659,6 +701,20 @@ struct NimclipAboutView: View {
                 .buttonStyle(NimclipAboutControlStyle())
                 .popover(isPresented: $isShowingContact, arrowEdge: .bottom) {
                     NimclipContactView()
+                }
+                Button {
+                    isShowingContact = false
+                    isShowingSupport.toggle()
+                } label: {
+                    HStack(spacing: 5) {
+                        Text("赞赏支持")
+                        Image(systemName: "heart")
+                            .font(.system(size: 9.5, weight: .semibold))
+                    }
+                }
+                .buttonStyle(NimclipAboutControlStyle())
+                .popover(isPresented: $isShowingSupport, arrowEdge: .bottom) {
+                    NimclipSupportView()
                 }
             }
             .padding(.top, 18)
@@ -692,7 +748,7 @@ private struct NimclipSidebarButtonStyle: ButtonStyle {
 }
 
 private struct NimclipAboutLink: View {
-    let title: String
+    let title: LocalizedStringKey
     let systemImage: String
     let destination: URL
 
@@ -814,6 +870,110 @@ struct NimclipContactView: View {
         .frame(width: 320, height: 408, alignment: .top)
         .background(Color.clipletCanvas)
         .tint(Color.clipletSelection)
+    }
+}
+
+struct NimclipSupportView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("赞赏支持")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("如果 Nimclip 对你有帮助，可以请作者喝杯咖啡。")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("关闭")
+            }
+
+            HStack(alignment: .top, spacing: 14) {
+                NimclipPaymentCodeCard(
+                    title: "微信支付",
+                    assetName: "NimclipWeChatPayQR",
+                    accent: Color(red: 0.03, green: 0.76, blue: 0.38),
+                    accessibilityLabel: "微信支付收款码，收款人胡图图不涂涂"
+                )
+                NimclipPaymentCodeCard(
+                    title: "支付宝",
+                    assetName: "NimclipAlipayQR",
+                    accent: Color(red: 0.10, green: 0.47, blue: 0.95),
+                    accessibilityLabel: "支付宝收款码，收款人胡图图不涂涂"
+                )
+            }
+            .padding(.top, 16)
+
+            Text("使用微信或支付宝扫码赞赏")
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 12)
+        }
+        .padding(18)
+        .frame(width: 470, height: 350, alignment: .top)
+        .background(Color.clipletCanvas)
+        .tint(Color.clipletSelection)
+    }
+}
+
+private struct NimclipPaymentCodeCard: View {
+    let title: LocalizedStringKey
+    let assetName: String
+    let accent: Color
+    let accessibilityLabel: LocalizedStringKey
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "qrcode")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(accent)
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+
+            Image(assetName)
+                .resizable()
+                .interpolation(.none)
+                .scaledToFit()
+                .frame(width: 174, height: 174)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color.clipletBorder.opacity(0.65), lineWidth: 0.5)
+                }
+                .accessibilityLabel(accessibilityLabel)
+
+            Text("胡图图不涂涂")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity)
+        .background(
+            Color.clipletSettingsSurface,
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.clipletBorder.opacity(0.55), lineWidth: 0.5)
+        }
     }
 }
 
@@ -949,10 +1109,10 @@ private struct NimclipContactLinkStyle: ButtonStyle {
 }
 
 private struct ClipletSettingsSection<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     let content: Content
 
-    init(title: String, @ViewBuilder content: () -> Content) {
+    init(title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
@@ -978,12 +1138,12 @@ private struct ClipletSettingsSection<Content: View>: View {
 }
 
 private struct ClipletSettingsRow<Control: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     let systemImage: String
     let control: Control
 
     init(
-        _ title: String,
+        _ title: LocalizedStringKey,
         systemImage: String,
         @ViewBuilder control: @escaping () -> Control
     ) {

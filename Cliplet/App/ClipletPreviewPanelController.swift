@@ -20,6 +20,7 @@ final class ClipletPreviewPanelController {
         imageURL: URL?,
         thumbnailURL: URL?,
         referenceDate: Date,
+        language: NimclipLanguage = .defaultLanguage,
         relativeTo sourceWindow: NSWindow?
     ) {
         pendingHideTask?.cancel()
@@ -41,6 +42,7 @@ final class ClipletPreviewPanelController {
             imageURL: imageURL,
             thumbnailURL: thumbnailURL,
             referenceDate: referenceDate,
+            language: language,
             previewSize: previewSize,
             onHoverChange: { [weak self] isInside in
                 self?.setPreviewPointerInside(isInside)

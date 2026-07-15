@@ -20,20 +20,28 @@ enum NimclipAppearanceMode: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 
     var title: String {
+        title(in: .defaultLanguage)
+    }
+
+    func title(in language: NimclipLanguage) -> String {
         switch self {
         case .light:
-            return "浅色"
+            return language.localized("浅色")
         case .dark:
-            return "深色"
+            return language.localized("深色")
         }
     }
 
     var detail: String {
+        detail(in: .defaultLanguage)
+    }
+
+    func detail(in language: NimclipLanguage) -> String {
         switch self {
         case .light:
-            return "始终明亮"
+            return language.localized("始终明亮")
         case .dark:
-            return "始终深色"
+            return language.localized("始终深色")
         }
     }
 

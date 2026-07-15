@@ -16,11 +16,15 @@ enum NimclipUpdateCheckError: LocalizedError {
     case requestFailed(statusCode: Int)
 
     var errorDescription: String? {
+        errorDescription(in: .defaultLanguage)
+    }
+
+    func errorDescription(in language: NimclipLanguage) -> String {
         switch self {
         case .invalidResponse:
-            return "暂时无法读取版本信息。"
+            return language.localized("暂时无法读取版本信息。")
         case .requestFailed:
-            return "暂时无法连接到更新服务。"
+            return language.localized("暂时无法连接到更新服务。")
         }
     }
 }
