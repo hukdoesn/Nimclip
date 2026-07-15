@@ -82,11 +82,8 @@ Nimclip is free and open source, and every feature remains free to use. If it he
     <th>Alipay</th>
   </tr>
   <tr>
-    <td align="center"><img src="./docs/images/nimclip-wechat-pay.png" width="260" alt="WeChat Pay QR code for 胡图图不涂涂"></td>
-    <td align="center"><img src="./docs/images/nimclip-alipay.png" width="260" alt="Alipay QR code for 胡图图不涂涂"></td>
-  </tr>
-  <tr>
-    <td align="center" colspan="2">Recipient: 胡图图不涂涂</td>
+    <td align="center"><img src="./docs/images/nimclip-wechat-pay.png" width="260" alt="WeChat Pay QR code"></td>
+    <td align="center"><img src="./docs/images/nimclip-alipay.png" width="260" alt="Alipay QR code"></td>
   </tr>
 </table>
 

@@ -85,11 +85,8 @@ Nimclip 是免费开源项目，所有功能都可以免费使用。如果它对
     <th>支付宝</th>
   </tr>
   <tr>
-    <td align="center"><img src="./docs/images/nimclip-wechat-pay.png" width="260" alt="微信支付收款码，收款人胡图图不涂涂"></td>
-    <td align="center"><img src="./docs/images/nimclip-alipay.png" width="260" alt="支付宝收款码，收款人胡图图不涂涂"></td>
-  </tr>
-  <tr>
-    <td align="center" colspan="2">收款人：胡图图不涂涂</td>
+    <td align="center"><img src="./docs/images/nimclip-wechat-pay.png" width="260" alt="微信支付收款码"></td>
+    <td align="center"><img src="./docs/images/nimclip-alipay.png" width="260" alt="支付宝收款码"></td>
   </tr>
 </table>
 

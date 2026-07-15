@@ -187,8 +187,8 @@
 "如果 Nimclip 对你有帮助，可以请作者喝杯咖啡。" = "If Nimclip helps you, you can buy the author a coffee.";
 "微信支付" = "WeChat Pay";
 "支付宝" = "Alipay";
-"微信支付收款码，收款人胡图图不涂涂" = "WeChat Pay QR code for 胡图图不涂涂";
-"支付宝收款码，收款人胡图图不涂涂" = "Alipay QR code for 胡图图不涂涂";
+"微信支付收款码" = "WeChat Pay QR code";
+"支付宝收款码" = "Alipay QR code";
 "使用微信或支付宝扫码赞赏" = "Scan with WeChat or Alipay to show your support";
 
 /* Timestamps */

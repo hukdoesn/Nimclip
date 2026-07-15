@@ -907,13 +907,13 @@ struct NimclipSupportView: View {
                     title: "微信支付",
                     assetName: "NimclipWeChatPayQR",
                     accent: Color(red: 0.03, green: 0.76, blue: 0.38),
-                    accessibilityLabel: "微信支付收款码，收款人胡图图不涂涂"
+                    accessibilityLabel: "微信支付收款码"
                 )
                 NimclipPaymentCodeCard(
                     title: "支付宝",
                     assetName: "NimclipAlipayQR",
                     accent: Color(red: 0.10, green: 0.47, blue: 0.95),
-                    accessibilityLabel: "支付宝收款码，收款人胡图图不涂涂"
+                    accessibilityLabel: "支付宝收款码"
                 )
             }
             .padding(.top, 16)
@@ -959,10 +959,6 @@ private struct NimclipPaymentCodeCard: View {
                         .stroke(Color.clipletBorder.opacity(0.65), lineWidth: 0.5)
                 }
                 .accessibilityLabel(accessibilityLabel)
-
-            Text("胡图图不涂涂")
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 11)
         .frame(maxWidth: .infinity)

@@ -23,14 +23,21 @@ final class ClipletTimestampFormatterTests: XCTestCase {
         XCTAssertEqual(formatted(secondsAgo: 172_800, language: .english), "2 days ago")
     }
 
-    func testEnglishAuthorLabelsKeepChineseDisplayName() {
+    func testEnglishContactLabelKeepsChineseDisplayName() {
         XCTAssertEqual(
             NimclipLanguage.english.localized("微信二维码，联系人胡图图不涂涂"),
             "WeChat QR code for 胡图图不涂涂"
         )
+    }
+
+    func testPaymentLabelsDoNotIncludeRecipientName() {
         XCTAssertEqual(
-            NimclipLanguage.english.localized("支付宝收款码，收款人胡图图不涂涂"),
-            "Alipay QR code for 胡图图不涂涂"
+            NimclipLanguage.english.localized("微信支付收款码"),
+            "WeChat Pay QR code"
+        )
+        XCTAssertEqual(
+            NimclipLanguage.english.localized("支付宝收款码"),
+            "Alipay QR code"
         )
     }
 
