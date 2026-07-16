@@ -1,10 +1,116 @@
 import AppKit
+import Carbon.HIToolbox
 import UniformTypeIdentifiers
 import XCTest
 @testable import Cliplet
 
 @MainActor
 final class ClipboardSystemTests: XCTestCase {
+    func testGlobalHotKeyTriggersWhenMainKeyIsPressedBeforeModifiers() {
+        let shortcut = GlobalHotKeyShortcut.defaultPaste
+        var latch = GlobalHotKeyChordLatch()
+
+        XCTAssertFalse(
+            latch.update(
+                isPressed: shortcut.matchesPhysicalState(
+                    keyIsPressed: true,
+                    activeModifiers: 0
+                )
+            )
+        )
+        XCTAssertFalse(
+            latch.update(
+                isPressed: shortcut.matchesPhysicalState(
+                    keyIsPressed: true,
+                    activeModifiers: UInt32(shiftKey)
+                )
+            )
+        )
+        XCTAssertTrue(
+            latch.update(
+                isPressed: shortcut.matchesPhysicalState(
+                    keyIsPressed: true,
+                    activeModifiers: UInt32(shiftKey | cmdKey)
+                )
+            )
+        )
+    }
+
+    func testGlobalHotKeyOnlyTriggersOnceUntilAnyRequiredKeyIsReleased() {
+        let shortcut = GlobalHotKeyShortcut.defaultPaste
+        let allModifiers = UInt32(shiftKey | cmdKey)
+        var latch = GlobalHotKeyChordLatch()
+
+        XCTAssertTrue(
+            latch.update(
+                isPressed: shortcut.matchesPhysicalState(
+                    keyIsPressed: true,
+                    activeModifiers: allModifiers
+                )
+            )
+        )
+        XCTAssertFalse(
+            latch.update(
+                isPressed: shortcut.matchesPhysicalState(
+                    keyIsPressed: true,
+                    activeModifiers: allModifiers
+                )
+            )
+        )
+        XCTAssertFalse(latch.update(isPressed: false))
+        XCTAssertTrue(
+            latch.update(
+                isPressed: shortcut.matchesPhysicalState(
+                    keyIsPressed: true,
+                    activeModifiers: allModifiers
+                )
+            )
+        )
+    }
+
+    func testCarbonAndPhysicalHotKeyPathsDoNotTriggerTwice() {
+        var latch = GlobalHotKeyChordLatch()
+
+        XCTAssertTrue(latch.acceptRegisteredHotKeyEvent())
+        XCTAssertFalse(latch.update(isPressed: true))
+        XCTAssertFalse(latch.acceptRegisteredHotKeyEvent())
+        XCTAssertFalse(latch.update(isPressed: false))
+        XCTAssertTrue(latch.acceptRegisteredHotKeyEvent())
+    }
+
+    func testCustomizedGlobalHotKeyAlsoIgnoresPressOrder() {
+        let shortcut = GlobalHotKeyShortcut(
+            keyCode: UInt32(kVK_ANSI_Q),
+            modifiers: UInt32(optionKey | controlKey)
+        )
+        var latch = GlobalHotKeyChordLatch()
+
+        XCTAssertFalse(
+            latch.update(
+                isPressed: shortcut.matchesPhysicalState(
+                    keyIsPressed: true,
+                    activeModifiers: 0
+                )
+            )
+        )
+        XCTAssertFalse(
+            latch.update(
+                isPressed: shortcut.matchesPhysicalState(
+                    keyIsPressed: true,
+                    activeModifiers: UInt32(optionKey)
+                )
+            )
+        )
+        XCTAssertTrue(
+            latch.update(
+                isPressed: shortcut.matchesPhysicalState(
+                    keyIsPressed: true,
+                    activeModifiers: UInt32(optionKey | controlKey)
+                )
+            )
+        )
+    }
+
     func testMonitorCapturesPlainTextAndSourceMetadata() throws {
         let pasteboard = NSPasteboard(name: .init("ClipletTests.capture.\(UUID().uuidString)"))
         let monitor = ClipboardMonitor(pasteboard: pasteboard)

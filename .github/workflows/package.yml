@@ -80,27 +80,32 @@ jobs:
         run: |
           PREVIOUS_TAG="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
 
-          if [ -n "$PREVIOUS_TAG" ]; then
-            COMMIT_RANGE="$PREVIOUS_TAG..$TAG"
+          VERSION="${TAG#v}"
+          if [ -f CHANGELOG.md ]; then
+            awk -v version="$VERSION" '
+              $0 == "## [" version "]" {
+                found = 1
+                next
+              }
+              found && /^## \[/ {
+                exit
+              }
+              found {
+                print
+              }
+            ' CHANGELOG.md > release-changes.md
           else
-            COMMIT_RANGE="$TAG"
+            : > release-changes.md
           fi
 
           {
             echo "## 本次更新"
             echo
 
-            if git log "$COMMIT_RANGE" --no-merges --format='%H%x09%s' |
-              grep -q .; then
-              while IFS=$'\t' read -r SHA SUBJECT; do
-                SHORT_SHA="${SHA:0:7}"
-                printf -- '- %s ([`%s`](https://github.com/%s/commit/%s))\n' \
-                  "$SUBJECT" "$SHORT_SHA" "$GH_REPO" "$SHA"
-              done < <(
-                git log "$COMMIT_RANGE" --no-merges --format='%H%x09%s'
-              )
+            if grep -q '[^[:space:]]' release-changes.md; then
+              cat release-changes.md
             else
-              echo "- 发布 $TAG"
+              echo "- 发布 Nimclip $TAG，包含自上一版本以来的功能改进与问题修复。"
             fi
 
             echo

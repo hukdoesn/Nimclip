@@ -51,6 +51,8 @@ Nimclip is a free, open-source, native, local-first clipboard history manager fo
 
 Every time the panel opens, Nimclip selects the first item in the current search and filter results and scrolls the list to the top, keeping the newest available content ready to use.
 
+Default and customized global shortcut keys are order-independent. With the default <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> shortcut, Nimclip opens as soon as all three keys are held, whether V or the modifiers were pressed first. A held chord triggers only once until one of its required keys is released.
+
 ## Interface
 
 ### Image and long-text previews
