@@ -239,7 +239,9 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         if !popover.isShown {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        // The status-item click already gives AppKit the user interaction it
+        // needs to focus the popover. Forcing an accessory app to activate here
+        // can repeatedly switch the system menu bar away from the frontmost app.
         popover.contentViewController?.view.window?.makeKey()
     }
 
