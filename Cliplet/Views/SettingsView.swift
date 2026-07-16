@@ -245,6 +245,15 @@ struct SettingsView: View {
                     accessibilityName: viewModel.localized("保留时间")
                 )
             }
+
+            ClipletSettingsDivider()
+
+            Text("达到数量上限后会自动删除最旧的未收藏记录；收藏不计入数量上限。")
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 30)
+                .padding(.vertical, 9)
         }
     }
 

@@ -2,7 +2,9 @@ import AppKit
 import Combine
 import CryptoKit
 import Foundation
+import ImageIO
 import SwiftData
+import UniformTypeIdentifiers
 
 enum ClipboardStoreError: LocalizedError {
     case emptyText
@@ -154,6 +156,7 @@ final class ClipboardStore: ObservableObject {
         self.errorMessage = nil
 
         try refresh()
+        try migrateRedundantImageArchives()
         try migrateLegacyTagColors()
     }
 
@@ -219,11 +222,11 @@ final class ClipboardStore: ObservableObject {
                 ClipboardStoreError.imageTooLarge(maximumBytes: Self.maximumImageBytes)
             )
         }
-        guard let image = NSImage(data: data) else {
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(imageSource) > 0 else {
             throw report(ClipboardStoreError.invalidImageData)
         }
 
-        let archiveData = try encodedArchiveData(for: archive)
         let contentHash: String
         if let archive {
             contentHash = Self.sha256Hex(for: archive)
@@ -236,9 +239,7 @@ final class ClipboardStore: ObservableObject {
             if let typeIdentifier {
                 existing.imageTypeIdentifier = typeIdentifier
             }
-            if let archiveData {
-                existing.pasteboardArchiveData = archiveData
-            }
+            existing.pasteboardArchiveData = nil
             try updateDuplicate(
                 existing,
                 sourceAppBundleIdentifier: sourceAppBundleIdentifier,
@@ -254,8 +255,8 @@ final class ClipboardStore: ObservableObject {
         let thumbnailURL = imagesDirectory.appendingPathComponent(thumbnailFileName)
 
         do {
+            let thumbnail = try Self.thumbnailPNGData(from: imageSource)
             try data.write(to: imageURL, options: .atomic)
-            let thumbnail = try Self.thumbnailPNGData(for: image)
             try thumbnail.write(to: thumbnailURL, options: .atomic)
         } catch {
             try? fileManager.removeItem(at: imageURL)
@@ -271,7 +272,7 @@ final class ClipboardStore: ObservableObject {
                 imageRelativePath: imageFileName,
                 thumbnailRelativePath: thumbnailFileName,
                 imageTypeIdentifier: typeIdentifier,
-                pasteboardArchiveData: archiveData,
+                pasteboardArchiveData: nil,
                 sourceAppBundleIdentifier: sourceAppBundleIdentifier,
                 sourceAppName: sourceAppName
             )
@@ -340,7 +341,12 @@ final class ClipboardStore: ObservableObject {
 
         item.imageRecognizedText = String(text.prefix(Self.maximumRecognizedTextCharacters))
         item.imageTextIndexedAt = now()
-        try saveAndRefresh()
+        do {
+            try modelContext.save()
+            errorMessage = nil
+        } catch {
+            throw report(error)
+        }
     }
 
     func toggleFavorite(_ item: ClipboardItem) throws {
@@ -650,6 +656,19 @@ final class ClipboardStore: ObservableObject {
         try refresh()
     }
 
+    private func migrateRedundantImageArchives() throws {
+        let imageItemsWithArchives = items.filter {
+            $0.kind == .image && $0.pasteboardArchiveData != nil
+        }
+        guard !imageItemsWithArchives.isEmpty else { return }
+
+        for item in imageItemsWithArchives {
+            item.pasteboardArchiveData = nil
+        }
+        try modelContext.save()
+        try refresh()
+    }
+
     @discardableResult
     private func report(_ error: Error) -> Error {
         errorMessage = error.localizedDescription
@@ -700,39 +719,33 @@ final class ClipboardStore: ObservableObject {
         return isValid ? normalized : "2F343A"
     }
 
-    private static func thumbnailPNGData(for image: NSImage) throws -> Data {
-        let maximumDimension: CGFloat = 320
-        let imageSize = image.size
-        guard imageSize.width > 0, imageSize.height > 0 else {
+    private static func thumbnailPNGData(from imageSource: CGImageSource) throws -> Data {
+        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(
+            imageSource,
+            0,
+            [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 320,
+                kCGImageSourceShouldCacheImmediately: true
+            ] as CFDictionary
+        ) else {
             throw ClipboardStoreError.invalidImageData
         }
 
-        let scale = min(
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data,
+            UTType.png.identifier as CFString,
             1,
-            maximumDimension / max(imageSize.width, imageSize.height)
-        )
-        let targetSize = NSSize(
-            width: max(1, imageSize.width * scale),
-            height: max(1, imageSize.height * scale)
-        )
-        let thumbnail = NSImage(size: targetSize)
-        thumbnail.lockFocus()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        image.draw(
-            in: NSRect(origin: .zero, size: targetSize),
-            from: NSRect(origin: .zero, size: imageSize),
-            operation: .copy,
-            fraction: 1
-        )
-        thumbnail.unlockFocus()
-
-        guard
-            let tiffData = thumbnail.tiffRepresentation,
-            let representation = NSBitmapImageRep(data: tiffData),
-            let pngData = representation.representation(using: .png, properties: [:])
-        else {
+            nil
+        ) else {
             throw ClipboardStoreError.invalidImageData
         }
-        return pngData
+        CGImageDestinationAddImage(destination, thumbnail, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw ClipboardStoreError.invalidImageData
+        }
+        return data as Data
     }
 }

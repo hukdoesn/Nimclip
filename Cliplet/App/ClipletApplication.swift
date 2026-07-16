@@ -19,6 +19,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private let previewPanelController = ClipletPreviewPanelController()
+    private let modifierKeyMonitor = ModifierKeyMonitor()
     private let settingsNavigation = NimclipSettingsNavigation()
     private let updateChecker = NimclipUpdateChecker()
     private var settingsWindow: NSWindow?
@@ -39,6 +40,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             applyAppearance(viewModel.appearanceMode, animated: false)
             configureStatusItem()
             configurePopover(with: viewModel)
+            modifierKeyMonitor.start()
 
             viewModel.onShowRequested = { [weak self] in self?.showPopover() }
             viewModel.onDismissRequested = { [weak self] in self?.closePopover() }
@@ -85,6 +87,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     func applicationWillTerminate(_ notification: Notification) {
         automaticUpdateTask?.cancel()
+        modifierKeyMonitor.stop()
         NotificationCenter.default.removeObserver(self)
         previewPanelController.hide()
         viewModel?.shutdown()

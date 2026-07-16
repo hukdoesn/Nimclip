@@ -60,9 +60,7 @@ final class ClipletViewModel {
     private var queuedImageTextItemIDSet: Set<UUID> = []
     private var imageTextRecognitionGeneration = 0
     private var shouldNotifyWhenImageTextIndexFinishes = false
-    private var revision = 0 {
-        didSet { rebuildVisibleItems() }
-    }
+    private var revision = 0
     @ObservationIgnored private var presentationKindCache: [String: ClipboardPresentationKind] = [:]
 
     init(
@@ -142,13 +140,13 @@ final class ClipletViewModel {
             do {
                 try launchAtLoginManager.setEnabled(newValue)
                 try store.updateSettings(launchAtLogin: newValue)
-                revision += 1
+                markStateChanged()
                 if launchAtLoginManager.status == .requiresApproval {
                     showToast(localized("请在系统设置中允许 Nimclip 登录时启动"))
                 }
             } catch {
                 showToast(localizedDescription(for: error))
-                revision += 1
+                markStateChanged()
             }
         }
     }
@@ -162,7 +160,7 @@ final class ClipletViewModel {
             guard newValue != automaticImageTextRecognition else { return }
             do {
                 try store.updateSettings(automaticImageTextRecognition: newValue)
-                revision += 1
+                markStateChanged()
                 showToast(
                     localized(
                         newValue
@@ -192,7 +190,7 @@ final class ClipletViewModel {
             guard newValue != appearanceMode else { return }
             do {
                 try store.updateSettings(appearanceMode: newValue)
-                revision += 1
+                markStateChanged()
                 onAppearanceChanged?(newValue)
                 showToast(
                     localizedFormat(
@@ -217,7 +215,7 @@ final class ClipletViewModel {
             guard newValue != language else { return }
             do {
                 try store.updateSettings(language: newValue)
-                revision += 1
+                markStateChanged()
                 onLanguageChanged?(newValue)
                 showToast(
                     newValue.localizedFormat(
@@ -590,7 +588,7 @@ final class ClipletViewModel {
                     )
                 }
             }
-            revision += 1
+            markStateChanged(rebuildItems: true)
             ensureValidSelection()
         } catch ClipboardStoreError.emptyText {
             // Empty clipboard strings are intentionally ignored.
@@ -667,13 +665,16 @@ final class ClipletViewModel {
             favoritesOnly: selectedSection == .favorites,
             tag: selectedTag
         )
+        let nextItems: [ClipboardItem]
         if selectedContentFilter == .all {
-            visibleItems = filteredItems
+            nextItems = filteredItems
         } else {
-            visibleItems = filteredItems.filter {
+            nextItems = filteredItems.filter {
                 selectedContentFilter.includes(presentationKind(for: $0))
             }
         }
+        guard !Self.haveSameItemOrder(visibleItems, nextItems) else { return }
+        visibleItems = nextItems
     }
 
     private func enqueueImageTextRecognition(
@@ -683,14 +684,10 @@ final class ClipletViewModel {
         shouldNotifyWhenImageTextIndexFinishes =
             shouldNotifyWhenImageTextIndexFinishes || notifyWhenFinished
 
-        let newItemIDs = itemIDs.filter { itemID in
-            guard !queuedImageTextItemIDSet.contains(itemID),
-                  let item = store.items.first(where: { $0.id == itemID }),
-                  item.kind == .image,
-                  item.imageTextIndexedAt == nil else {
-                return false
-            }
-            return true
+        let eligibleItemIDs = Set(store.unindexedImageItems.map(\.id))
+        let newItemIDs = itemIDs.filter {
+            !queuedImageTextItemIDSet.contains($0)
+                && eligibleItemIDs.contains($0)
         }
         guard !newItemIDs.isEmpty else {
             if imageTextRecognitionTask == nil {
@@ -699,7 +696,7 @@ final class ClipletViewModel {
             return
         }
 
-        queuedImageTextItemIDs.append(contentsOf: newItemIDs)
+        queuedImageTextItemIDs.append(contentsOf: newItemIDs.reversed())
         queuedImageTextItemIDSet.formUnion(newItemIDs)
 
         if imageTextRecognitionTask == nil {
@@ -719,9 +716,8 @@ final class ClipletViewModel {
 
     private func processImageTextRecognitionQueue(generation: Int) async {
         while generation == imageTextRecognitionGeneration,
-              !Task.isCancelled,
-              let itemID = queuedImageTextItemIDs.first {
-            queuedImageTextItemIDs.removeFirst()
+              !Task.isCancelled {
+            guard let itemID = queuedImageTextItemIDs.popLast() else { break }
 
             guard let item = store.items.first(where: { $0.id == itemID }),
                   item.kind == .image,
@@ -729,7 +725,9 @@ final class ClipletViewModel {
                   let imageURL = store.imageURL(for: item) else {
                 queuedImageTextItemIDSet.remove(itemID)
                 imageTextIndexCompletedCount += 1
-                revision += 1
+                if hasActiveSearch {
+                    rebuildVisibleItems()
+                }
                 continue
             }
 
@@ -750,7 +748,9 @@ final class ClipletViewModel {
 
             queuedImageTextItemIDSet.remove(itemID)
             imageTextIndexCompletedCount += 1
-            revision += 1
+            if hasActiveSearch {
+                rebuildVisibleItems()
+            }
         }
 
         guard generation == imageTextRecognitionGeneration else { return }
@@ -762,7 +762,6 @@ final class ClipletViewModel {
         queuedImageTextItemIDs.removeAll()
         queuedImageTextItemIDSet.removeAll()
         shouldNotifyWhenImageTextIndexFinishes = false
-        revision += 1
 
         if shouldNotify {
             if failureCount == 0 {
@@ -790,7 +789,6 @@ final class ClipletViewModel {
         queuedImageTextItemIDSet.removeAll()
         isIndexingImageText = false
         shouldNotifyWhenImageTextIndexFinishes = false
-        revision += 1
 
         if showNotice {
             showToast(localized("已停止图片文字识别"))
@@ -816,7 +814,7 @@ final class ClipletViewModel {
                 showToast(localized("快捷键已更新"))
             }
             hotKeyErrorMessage = nil
-            revision += 1
+            markStateChanged()
         } catch {
             let message = localizedDescription(for: error)
             hotKeyErrorMessage = message
@@ -827,7 +825,7 @@ final class ClipletViewModel {
     private func perform(success: String? = nil, _ operation: () throws -> Void) {
         do {
             try operation()
-            revision += 1
+            markStateChanged(rebuildItems: true)
             ensureValidSelection()
             if let success { showToast(success) }
         } catch {
@@ -842,6 +840,28 @@ final class ClipletViewModel {
             try? await Task.sleep(for: .seconds(2.5))
             guard !Task.isCancelled else { return }
             self?.toastMessage = nil
+        }
+    }
+
+    private func markStateChanged(rebuildItems: Bool = false) {
+        revision &+= 1
+        if rebuildItems {
+            rebuildVisibleItems()
+        }
+    }
+
+    private var hasActiveSearch: Bool {
+        !searchText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+    }
+
+    private static func haveSameItemOrder(
+        _ lhs: [ClipboardItem],
+        _ rhs: [ClipboardItem]
+    ) -> Bool {
+        lhs.count == rhs.count && zip(lhs, rhs).allSatisfy {
+            $0.id == $1.id
         }
     }
 

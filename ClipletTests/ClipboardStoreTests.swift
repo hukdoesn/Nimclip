@@ -244,6 +244,32 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertTrue(fixture.store.items.contains { $0.id == protected.id })
     }
 
+    func testHistoryLimitDeletesOldestNonFavoritesButKeepsFavorites() throws {
+        var now = Date(timeIntervalSince1970: 20_000)
+        let fixture = try makeStore(now: { now })
+        defer { fixture.cleanup() }
+
+        let favorite = try fixture.store.ingestText("protected favorite")
+        try fixture.store.setFavorite(true, for: favorite)
+
+        for index in 0..<102 {
+            now.addTimeInterval(1)
+            _ = try fixture.store.ingestText("history item \(index)")
+        }
+
+        try fixture.store.updateSettings(
+            historyLimit: ClipboardStore.minimumHistoryLimit,
+            retentionDays: ClipboardStore.maximumRetentionDays
+        )
+
+        let nonFavorites = fixture.store.items.filter { !$0.isFavorite }
+        XCTAssertEqual(nonFavorites.count, ClipboardStore.minimumHistoryLimit)
+        XCTAssertTrue(fixture.store.items.contains { $0.id == favorite.id })
+        XCTAssertFalse(fixture.store.items.contains { $0.text == "history item 0" })
+        XCTAssertFalse(fixture.store.items.contains { $0.text == "history item 1" })
+        XCTAssertTrue(fixture.store.items.contains { $0.text == "history item 101" })
+    }
+
     func testImagePersistsTypeAndRemovesFilesOnDelete() throws {
         let fixture = try makeStore()
         defer { fixture.cleanup() }
@@ -266,6 +292,77 @@ final class ClipboardStoreTests: XCTestCase {
         try fixture.store.delete(item)
         XCTAssertFalse(FileManager.default.fileExists(atPath: originalURL.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: thumbnailURL.path))
+    }
+
+    func testImageDoesNotPersistRedundantPasteboardArchive() throws {
+        let fixture = try makeStore()
+        defer { fixture.cleanup() }
+
+        let pngData = try XCTUnwrap(
+            Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+        )
+        let archive = ClipboardPasteboardArchive(
+            items: [
+                .init(
+                    representations: [
+                        .init(
+                            typeIdentifier: UTType.png.identifier,
+                            data: pngData
+                        ),
+                        .init(
+                            typeIdentifier: NSPasteboard.PasteboardType.string.rawValue,
+                            data: Data("Screenshot".utf8)
+                        )
+                    ]
+                )
+            ]
+        )
+
+        let item = try fixture.store.ingestImage(
+            pngData,
+            typeIdentifier: UTType.png.identifier,
+            archive: archive
+        )
+
+        XCTAssertNil(item.pasteboardArchiveData)
+        XCTAssertNil(fixture.store.pasteboardArchive(for: item))
+    }
+
+    func testStoreMigratesLegacyImageArchiveData() throws {
+        let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
+        let configuration = ModelConfiguration(
+            "ClipletImageArchiveMigrationTests",
+            schema: schema,
+            isStoredInMemoryOnly: true
+        )
+        let container = try ModelContainer(for: schema, configurations: configuration)
+        let context = ModelContext(container)
+        context.insert(AppSettings())
+        context.insert(
+            ClipboardItem(
+                kind: .image,
+                imageRelativePath: "legacy-original",
+                thumbnailRelativePath: "legacy-thumb.png",
+                pasteboardArchiveData: Data(repeating: 0xA5, count: 1_024),
+                contentHash: "legacy-image-archive"
+            )
+        )
+        try context.save()
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ClipletImageArchiveMigrationTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let store = try ClipboardStore(
+            modelContainer: container,
+            imagesDirectory: directory
+        )
+
+        XCTAssertEqual(store.items.count, 1)
+        XCTAssertNil(store.items[0].pasteboardArchiveData)
     }
 
     func testRecognizedImageTextPersistsAndCanBeSearchedAfterReopening() throws {

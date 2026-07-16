@@ -48,6 +48,11 @@ struct MenuBarRootView: View {
         }
         .onAppear {
             isSearchFocused = true
+            updateOptionState(
+                ModifierKeyMonitor.optionIsPressed(
+                    in: NSEvent.modifierFlags
+                )
+            )
         }
         .onDisappear {
             resetTransientInteractionState()
@@ -56,11 +61,17 @@ struct MenuBarRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
             resetTransientInteractionState()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
-            resetTransientInteractionState()
-        }
-        .onModifierKeysChanged(mask: .option) { _, modifiers in
-            updateOptionState(modifiers.contains(.option))
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ModifierKeyMonitor.optionKeyStateDidChange
+            )
+        ) { notification in
+            guard let isPressed = notification.userInfo?[
+                ModifierKeyMonitor.isPressedUserInfoKey
+            ] as? Bool else {
+                return
+            }
+            updateOptionState(isPressed)
         }
         .onKeyPress(.upArrow) {
             viewModel.selectPrevious()
@@ -271,38 +282,41 @@ struct MenuBarRootView: View {
             emptyState
         } else {
             ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 2) {
-                        ForEach(visibleItems) { item in
-                            ClipboardItemRow(
-                                item: item,
-                                tags: viewModel.tags,
-                                thumbnailURL: viewModel.thumbnailURL(for: item),
-                                presentationKind: viewModel.presentationKind(for: item),
-                                referenceDate: viewModel.timestampReferenceDate,
-                                language: viewModel.language,
-                                isSelected: viewModel.selectedItemID == item.id,
-                                isCollectionMode: isCollectionMode,
-                                collectionIndex: collectionIndex(for: item.id),
-                                onHoverChange: { hovering in
-                                    updateHoveredItem(item.id, isHovered: hovering)
-                                },
-                                onPaste: { viewModel.paste(item) },
-                                onPastePlainText: { viewModel.pasteAsPlainText(item) },
-                                onCopy: { viewModel.copy(item) },
-                                onCopyPlainText: { viewModel.copyAsPlainText(item) },
-                                onOpenLink: { viewModel.openLink(item) },
-                                onToggleCollection: { toggleCollectedItem(item) },
-                                onToggleFavorite: { viewModel.toggleFavorite(item) },
-                                onDelete: { viewModel.delete(item) },
-                                onToggleTag: { tag in viewModel.toggleTag(tag, on: item) }
-                            )
-                            .id(item.id)
-                        }
+                List {
+                    ForEach(visibleItems) { item in
+                        ClipboardItemRow(
+                            item: item,
+                            tags: viewModel.tags,
+                            thumbnailURL: viewModel.thumbnailURL(for: item),
+                            presentationKind: viewModel.presentationKind(for: item),
+                            referenceDate: viewModel.timestampReferenceDate,
+                            language: viewModel.language,
+                            isSelected: viewModel.selectedItemID == item.id,
+                            isCollectionMode: isCollectionMode,
+                            collectionIndex: collectionIndex(for: item.id),
+                            onHoverChange: { hovering in
+                                updateHoveredItem(item.id, isHovered: hovering)
+                            },
+                            onPaste: { viewModel.paste(item) },
+                            onPastePlainText: { viewModel.pasteAsPlainText(item) },
+                            onCopy: { viewModel.copy(item) },
+                            onCopyPlainText: { viewModel.copyAsPlainText(item) },
+                            onOpenLink: { viewModel.openLink(item) },
+                            onToggleCollection: { toggleCollectedItem(item) },
+                            onToggleFavorite: { viewModel.toggleFavorite(item) },
+                            onDelete: { viewModel.delete(item) },
+                            onToggleTag: { tag in viewModel.toggleTag(tag, on: item) }
+                        )
+                        .id(item.id)
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                     }
-                    .padding(.vertical, 5)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
                 .scrollIndicators(.automatic)
+                .contentMargins(.vertical, 5, for: .scrollContent)
                 .id(viewModel.listPresentationGeneration)
                 .onChange(of: viewModel.selectedItemID) { _, itemID in
                     guard let itemID else { return }

@@ -101,7 +101,7 @@ image: https://hukdoesn.github.io/Nimclip/images/nimclip-macbook-themes.png
 - 搜索、类型筛选、收藏和标签；图片可通过识别出的文字搜索
 - 来源应用名称与图标
 - 纯文本粘贴和多条内容合并
-- 自定义保留数量、保留时间、快捷键和外观
+- 自定义保留数量、保留时间、快捷键和外观；超过上限时自动删除最旧的未收藏记录
 - 所有剪贴板数据只保存在当前 Mac，不需要账号，不上传云端
 - 图片文字识别使用 macOS 系统 OCR，在本机低优先级串行执行
 
@@ -110,7 +110,7 @@ image: https://hukdoesn.github.io/Nimclip/images/nimclip-macbook-themes.png
 - History for text, links, code, images, and rich text
 - Search, filters, favorites, tags, source application details, and images by recognized text
 - Plain-text paste and multi-item merging
-- Configurable retention, global shortcut, and appearance
+- Configurable retention, global shortcut, and appearance; the oldest non-favorites are removed automatically at the limit
 - All clipboard data stays on your Mac—no account and no cloud upload
 - Image text recognition uses macOS system OCR in a low-priority on-device serial queue
 
@@ -134,8 +134,13 @@ Copied images remain easy to identify with thumbnails and a full-size preview.
 Customize shortcuts, retention, on-device image text recognition, paste behavior, and appearance for your workflow.
 
 <figure class="nimclip-shot">
-  <img src="./images/nimclip-settings-themes.png" alt="Nimclip settings in light and dark themes" loading="lazy">
-  <figcaption>完整设置页面 / Complete settings</figcaption>
+  <img src="./images/nimclip-settings-appearance-history.png" alt="Nimclip appearance, shortcut, and history settings in light and dark themes" loading="lazy">
+  <figcaption>外观、快捷键与历史记录 / Appearance, shortcut, and history</figcaption>
+</figure>
+
+<figure class="nimclip-shot">
+  <img src="./images/nimclip-settings-ocr-general.png" alt="Nimclip image text recognition, general, and direct-paste settings in light and dark themes" loading="lazy">
+  <figcaption>图片文字识别、通用与直接粘贴 / Image text recognition, general, and direct paste</figcaption>
 </figure>
 
 ### 原生体验 / Native Experience

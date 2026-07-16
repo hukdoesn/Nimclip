@@ -2,6 +2,96 @@ import Carbon.HIToolbox
 import CoreGraphics
 import Foundation
 
+private final class GlobalHotKeyPhysicalStateMonitor: @unchecked Sendable {
+    typealias StateChangeHandler = @Sendable (Bool) -> Void
+
+    private let queue = DispatchQueue(
+        label: "com.nimclip.hotkey-state",
+        qos: .userInteractive
+    )
+    private var timer: DispatchSourceTimer?
+    private var shortcut: GlobalHotKeyShortcut
+    private var lastIsPressed = false
+    private let onStateChange: StateChangeHandler
+
+    init(
+        shortcut: GlobalHotKeyShortcut,
+        onStateChange: @escaping StateChangeHandler
+    ) {
+        self.shortcut = shortcut
+        self.onStateChange = onStateChange
+    }
+
+    deinit {
+        timer?.setEventHandler {}
+        timer?.cancel()
+    }
+
+    func start() {
+        queue.async { [weak self] in
+            guard let self, timer == nil else { return }
+            let timer = DispatchSource.makeTimerSource(queue: queue)
+            timer.schedule(
+                deadline: .now(),
+                repeating: .milliseconds(25),
+                leeway: .milliseconds(5)
+            )
+            timer.setEventHandler { [weak self] in
+                self?.poll()
+            }
+            self.timer = timer
+            timer.resume()
+        }
+    }
+
+    func update(shortcut: GlobalHotKeyShortcut) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.shortcut = shortcut
+            if lastIsPressed {
+                lastIsPressed = false
+                onStateChange(false)
+            }
+        }
+    }
+
+    func stop() {
+        queue.async { [weak self] in
+            guard let self, let timer else { return }
+            timer.setEventHandler {}
+            timer.cancel()
+            self.timer = nil
+            lastIsPressed = false
+        }
+    }
+
+    private func poll() {
+        let keyIsPressed = CGEventSource.keyState(
+            .combinedSessionState,
+            key: CGKeyCode(shortcut.keyCode)
+        )
+        let activeModifiers = Self.carbonModifiers(
+            from: CGEventSource.flagsState(.combinedSessionState)
+        )
+        let isPressed = shortcut.matchesPhysicalState(
+            keyIsPressed: keyIsPressed,
+            activeModifiers: activeModifiers
+        )
+        guard isPressed != lastIsPressed else { return }
+        lastIsPressed = isPressed
+        onStateChange(isPressed)
+    }
+
+    private static func carbonModifiers(from flags: CGEventFlags) -> UInt32 {
+        var modifiers: UInt32 = 0
+        if flags.contains(.maskCommand) { modifiers |= UInt32(cmdKey) }
+        if flags.contains(.maskShift) { modifiers |= UInt32(shiftKey) }
+        if flags.contains(.maskAlternate) { modifiers |= UInt32(optionKey) }
+        if flags.contains(.maskControl) { modifiers |= UInt32(controlKey) }
+        return modifiers
+    }
+}
+
 public struct GlobalHotKeyShortcut: Equatable, Sendable {
     public static let defaultPaste = GlobalHotKeyShortcut(
         keyCode: UInt32(kVK_ANSI_V),
@@ -79,7 +169,7 @@ public final class GlobalHotKeyManager {
     // for synchronous teardown in this class's nonisolated deinitializer.
     nonisolated(unsafe) private var eventHandlerReference: EventHandlerRef?
     nonisolated(unsafe) private var hotKeyReference: EventHotKeyRef?
-    private var chordMonitorTask: Task<Void, Never>?
+    private var physicalStateMonitor: GlobalHotKeyPhysicalStateMonitor?
     private var chordLatch = GlobalHotKeyChordLatch()
 
     public init(shortcut: GlobalHotKeyShortcut = .defaultPaste) throws {
@@ -95,11 +185,11 @@ public final class GlobalHotKeyManager {
             throw error
         }
 
-        startPhysicalChordMonitor()
+        startPhysicalStateMonitor()
     }
 
     deinit {
-        chordMonitorTask?.cancel()
+        physicalStateMonitor?.stop()
         if let hotKeyReference {
             UnregisterEventHotKey(hotKeyReference)
         }
@@ -121,6 +211,7 @@ public final class GlobalHotKeyManager {
             hotKeyReference = try register(newShortcut)
             shortcut = newShortcut
             chordLatch.reset()
+            physicalStateMonitor?.update(shortcut: newShortcut)
         } catch {
             hotKeyReference = try? register(previousShortcut)
             chordLatch.reset()
@@ -128,42 +219,23 @@ public final class GlobalHotKeyManager {
         }
     }
 
-    private func startPhysicalChordMonitor() {
-        chordMonitorTask?.cancel()
-        chordMonitorTask = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(20))
-                guard !Task.isCancelled, let self else { return }
-                pollPhysicalChordState()
+    private func startPhysicalStateMonitor() {
+        physicalStateMonitor?.stop()
+        let monitor = GlobalHotKeyPhysicalStateMonitor(
+            shortcut: shortcut
+        ) { [weak self] isPressed in
+            Task { @MainActor [weak self] in
+                self?.handlePhysicalStateChange(isPressed)
             }
         }
+        physicalStateMonitor = monitor
+        monitor.start()
     }
 
-    private func pollPhysicalChordState() {
-        let keyIsPressed = CGEventSource.keyState(
-            .combinedSessionState,
-            key: CGKeyCode(shortcut.keyCode)
-        )
-        let modifiers = Self.carbonModifiers(
-            from: CGEventSource.flagsState(.combinedSessionState)
-        )
-        let isPressed = shortcut.matchesPhysicalState(
-            keyIsPressed: keyIsPressed,
-            activeModifiers: modifiers
-        )
-
+    private func handlePhysicalStateChange(_ isPressed: Bool) {
         if chordLatch.update(isPressed: isPressed) {
             onTrigger?()
         }
-    }
-
-    private static func carbonModifiers(from flags: CGEventFlags) -> UInt32 {
-        var modifiers: UInt32 = 0
-        if flags.contains(.maskCommand) { modifiers |= UInt32(cmdKey) }
-        if flags.contains(.maskShift) { modifiers |= UInt32(shiftKey) }
-        if flags.contains(.maskAlternate) { modifiers |= UInt32(optionKey) }
-        if flags.contains(.maskControl) { modifiers |= UInt32(controlKey) }
-        return modifiers
     }
 
     private func installEventHandler() throws {

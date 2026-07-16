@@ -29,7 +29,7 @@ Nimclip is a free, open-source, native, local-first clipboard history manager fo
 - Ordered multi-item text collection for a single copy or paste
 - Image thumbnails, full image previews, and scrollable long-text previews
 - Repeated copies refresh the existing item and move it to the top instead of creating duplicates
-- Customizable global shortcut, history limit, retention period, and launch at login
+- Customizable global shortcut, history limit, retention period, and launch at login; the oldest non-favorites are deleted automatically at the limit, while favorites do not count toward it
 - Pause and resume clipboard recording
 - Independent light and dark appearances
 - Instant in-app switching between Simplified Chinese and English
@@ -78,8 +78,14 @@ Image text recognition is enabled by default. Once enabled, newly copied images 
 Configure the app language, appearance, global shortcut, history limit, retention period, image text recognition, launch at login, and direct-paste permission.
 
 <p align="center">
-  <img src="./docs/images/nimclip-settings-themes.png" width="1120" alt="Nimclip settings in light and dark themes">
+  <img src="./docs/images/nimclip-settings-appearance-history.png" width="1120" alt="Nimclip appearance, shortcut, and history settings in light and dark themes">
 </p>
+<p align="center"><sub>Appearance, shortcut, and history settings</sub></p>
+
+<p align="center">
+  <img src="./docs/images/nimclip-settings-ocr-general.png" width="1120" alt="Nimclip image text recognition, general, and direct-paste settings">
+</p>
+<p align="center"><sub>Image text recognition, general, and direct-paste settings</sub></p>
 
 Defaults:
 
@@ -90,6 +96,8 @@ Defaults:
 | Retention period | 7 days | 1–365 days |
 | Image text recognition | Enabled | Can be disabled; existing images can be indexed manually |
 | Launch at login | Disabled | Can be enabled in Settings |
+
+The history limit applies only to non-favorite clips. When it is exceeded, Nimclip automatically removes the oldest non-favorites and their local image files. Favorites are never removed automatically, so the total item count can exceed the configured limit.
 
 ### Update notifications
 

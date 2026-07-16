@@ -173,7 +173,7 @@ struct ClipboardItemRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 64, maxHeight: 64, alignment: .leading)
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
@@ -198,9 +198,7 @@ struct ClipboardItemRow: View {
             }
         }
         .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.1)) {
-                isHovered = hovering
-            }
+            isHovered = hovering
             onHoverChange(hovering)
         }
         .contextMenu { contextMenu }
@@ -364,9 +362,7 @@ private enum ClipletSourceAppIconProvider {
 private struct ClipletImageThumbnail: View {
     let url: URL?
 
-    private var image: NSImage? {
-        ClipletThumbnailCache.image(at: url)
-    }
+    @State private var image: NSImage?
 
     var body: some View {
         ZStack {
@@ -389,31 +385,84 @@ private struct ClipletImageThumbnail: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 0.5)
         }
+        .task(id: url) {
+            await loadImage()
+        }
         .accessibilityHidden(true)
+    }
+
+    @MainActor
+    private func loadImage() async {
+        image = nil
+        guard let url else { return }
+        let loadingTask = Task.detached(priority: .utility) {
+            ClipletThumbnailCache.image(at: url)
+        }
+        let cgImage = await withTaskCancellationHandler {
+            await loadingTask.value
+        } onCancel: {
+            loadingTask.cancel()
+        }
+        guard !Task.isCancelled, let cgImage else { return }
+        image = NSImage(cgImage: cgImage, size: .zero)
     }
 }
 
-@MainActor
-private enum ClipletThumbnailCache {
-    private static let cache: NSCache<NSString, NSImage> = {
-        let cache = NSCache<NSString, NSImage>()
-        cache.countLimit = 96
+private final class ClipletThumbnailCache: @unchecked Sendable {
+    nonisolated(unsafe) private static let cache: NSCache<NSString, CGImage> = {
+        let cache = NSCache<NSString, CGImage>()
+        cache.countLimit = 48
+        cache.totalCostLimit = 4 * 1_048_576
         return cache
     }()
-    private static var unavailablePaths = Set<String>()
+    private static let unavailablePathsLock = NSLock()
+    nonisolated(unsafe) private static var unavailablePaths = Set<String>()
 
-    static func image(at url: URL?) -> NSImage? {
-        guard let url else { return nil }
+    static func image(at url: URL) -> CGImage? {
+        guard !Task.isCancelled else { return nil }
         let path = url.path
         let key = path as NSString
         if let cached = cache.object(forKey: key) { return cached }
-        guard !unavailablePaths.contains(path) else { return nil }
-        guard let image = NSImage(contentsOf: url) else {
-            unavailablePaths.insert(path)
+        unavailablePathsLock.lock()
+        let isUnavailable = unavailablePaths.contains(path)
+        unavailablePathsLock.unlock()
+        guard !isUnavailable else { return nil }
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+            markUnavailable(path)
             return nil
         }
-        cache.setObject(image, forKey: key)
-        return image
+        guard !Task.isCancelled else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 96,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
+            source,
+            0,
+            options as CFDictionary
+        ) else {
+            markUnavailable(path)
+            return nil
+        }
+        guard !Task.isCancelled else { return nil }
+        cache.setObject(
+            cgImage,
+            forKey: key,
+            cost: cgImage.bytesPerRow * cgImage.height
+        )
+        return cgImage
+    }
+
+    static func removeAll() {
+        cache.removeAllObjects()
+    }
+
+    private static func markUnavailable(_ path: String) {
+        unavailablePathsLock.lock()
+        unavailablePaths.insert(path)
+        unavailablePathsLock.unlock()
     }
 }
 
@@ -427,6 +476,7 @@ struct ClipboardItemExpandedPreview: View {
     let onHoverChange: (Bool) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @State private var loadedPreviewImage: NSImage?
 
     init(
         item: ClipboardItem,
@@ -470,19 +520,6 @@ struct ClipboardItemExpandedPreview: View {
         )
     }
 
-    private var previewImage: NSImage? {
-        if let image = ClipletPreviewImageCache.image(
-            at: imageURL,
-            maximumPixelSize: maximumPreviewPixelSize
-        ) {
-            return image
-        }
-        return ClipletPreviewImageCache.image(
-            at: thumbnailURL,
-            maximumPixelSize: maximumPreviewPixelSize
-        )
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             previewBar
@@ -500,6 +537,9 @@ struct ClipboardItemExpandedPreview: View {
         }
         .shadow(color: .black.opacity(0.20), radius: 18, y: 8)
         .onHover(perform: onHoverChange)
+        .task(id: previewImageTaskID) {
+            await loadPreviewImage()
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
             language.localized(item.kind == .image ? "图片完整预览" : "完整文本预览")
@@ -573,8 +613,8 @@ struct ClipboardItemExpandedPreview: View {
             ZStack {
                 Color.black.opacity(colorScheme == .dark ? 0.19 : 0.035)
 
-                if let previewImage {
-                    Image(nsImage: previewImage)
+                if let loadedPreviewImage {
+                    Image(nsImage: loadedPreviewImage)
                         .resizable()
                         .scaledToFit()
                         .padding(10)
@@ -606,26 +646,63 @@ struct ClipboardItemExpandedPreview: View {
     }
 
     private var maximumPreviewPixelSize: Int {
-        let target = max(previewSize.width, previewSize.height) * 3
-        return Int(min(3_200, max(1_600, target)))
+        let target = max(previewSize.width, previewSize.height) * 2
+        return Int(min(1_800, max(960, target)))
+    }
+
+    private var previewImageTaskID: String {
+        "\(imageURL?.path ?? "")|\(thumbnailURL?.path ?? "")|\(maximumPreviewPixelSize)"
+    }
+
+    @MainActor
+    private func loadPreviewImage() async {
+        loadedPreviewImage = nil
+        let imageURL = imageURL
+        let thumbnailURL = thumbnailURL
+        let maximumPixelSize = maximumPreviewPixelSize
+        let loadingTask = Task.detached(priority: .userInitiated) {
+            () -> CGImage? in
+            if let image = ClipletPreviewImageCache.image(
+                at: imageURL,
+                maximumPixelSize: maximumPixelSize
+            ) {
+                return image
+            }
+            return ClipletPreviewImageCache.image(
+                at: thumbnailURL,
+                maximumPixelSize: maximumPixelSize
+            )
+        }
+        let cgImage = await withTaskCancellationHandler {
+            await loadingTask.value
+        } onCancel: {
+            loadingTask.cancel()
+        }
+        guard !Task.isCancelled, let cgImage else { return }
+        loadedPreviewImage = NSImage(cgImage: cgImage, size: .zero)
     }
 }
 
-@MainActor
-private enum ClipletPreviewImageCache {
-    private static let cache: NSCache<NSString, NSImage> = {
-        let cache = NSCache<NSString, NSImage>()
-        cache.countLimit = 24
+final class ClipletPreviewImageCache: @unchecked Sendable {
+    nonisolated(unsafe) private static let cache: NSCache<NSString, CGImage> = {
+        let cache = NSCache<NSString, CGImage>()
+        cache.countLimit = 1
+        cache.totalCostLimit = 16 * 1_048_576
         return cache
     }()
 
-    static func image(at url: URL?, maximumPixelSize: Int) -> NSImage? {
-        guard let url else { return nil }
+    static func removeAll() {
+        cache.removeAllObjects()
+    }
+
+    static func image(at url: URL?, maximumPixelSize: Int) -> CGImage? {
+        guard !Task.isCancelled, let url else { return nil }
         let key = "\(url.path)#\(maximumPixelSize)" as NSString
         if let cached = cache.object(forKey: key) { return cached }
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             return nil
         }
+        guard !Task.isCancelled else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
@@ -639,9 +716,13 @@ private enum ClipletPreviewImageCache {
         ) else {
             return nil
         }
-        let result = NSImage(cgImage: image, size: .zero)
-        cache.setObject(result, forKey: key)
-        return result
+        guard !Task.isCancelled else { return nil }
+        cache.setObject(
+            image,
+            forKey: key,
+            cost: image.bytesPerRow * image.height
+        )
+        return image
     }
 }
 

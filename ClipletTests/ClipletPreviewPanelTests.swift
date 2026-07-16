@@ -55,6 +55,7 @@ final class ClipletPreviewPanelTests: XCTestCase {
 
         controller.hide()
         XCTAssertEqual(panel?.isVisible, false)
+        XCTAssertNil(panel?.contentViewController)
     }
 
     func testPreviewStaysVisibleWhilePointerIsInsideThenClosesAfterExit() async {

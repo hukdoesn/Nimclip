@@ -81,7 +81,7 @@ final class ClipletPreviewPanelController {
         pendingHideTask?.cancel()
         pendingHideTask = nil
         isPointerInsidePreview = false
-        panel?.orderOut(nil)
+        performHide()
     }
 
     func applyAppearance(_ appearance: NSAppearance) {
@@ -100,7 +100,7 @@ final class ClipletPreviewPanelController {
                 return
             }
             pendingHideTask = nil
-            panel?.orderOut(nil)
+            performHide()
         }
     }
 
@@ -226,6 +226,13 @@ final class ClipletPreviewPanelController {
             .ignoresCycle
         ]
         return panel
+    }
+
+    private func performHide() {
+        panel?.orderOut(nil)
+        panel?.contentViewController = nil
+        hostingController = nil
+        ClipletPreviewImageCache.removeAll()
     }
 
     private func cachedImagePixelSize(at url: URL?) -> CGSize? {

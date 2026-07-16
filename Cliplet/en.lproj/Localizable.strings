@@ -139,6 +139,7 @@
 "显示 Nimclip" = "Show Nimclip";
 "历史记录" = "Clipboard History";
 "最多保留" = "Maximum Clips";
+"达到数量上限后会自动删除最旧的未收藏记录；收藏不计入数量上限。" = "When the limit is reached, the oldest non-favorite clips are deleted automatically. Favorites do not count toward the limit.";
 "条" = "clips";
 "保留时间" = "Retention Period";
 "天" = "days";

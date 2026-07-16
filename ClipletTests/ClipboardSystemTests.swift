@@ -111,6 +111,15 @@ final class ClipboardSystemTests: XCTestCase {
         )
     }
 
+    func testOptionPreviewDetectionAllowsOtherModifierFlags() {
+        XCTAssertTrue(
+            ModifierKeyMonitor.optionIsPressed(in: [.option, .capsLock])
+        )
+        XCTAssertFalse(
+            ModifierKeyMonitor.optionIsPressed(in: [.command, .shift])
+        )
+    }
+
     func testMonitorCapturesPlainTextAndSourceMetadata() throws {
         let pasteboard = NSPasteboard(name: .init("ClipletTests.capture.\(UUID().uuidString)"))
         let monitor = ClipboardMonitor(pasteboard: pasteboard)
