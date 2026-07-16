@@ -122,6 +122,10 @@ xattr -dr com.apple.quarantine "/Applications/Nimclip.app"
 open "/Applications/Nimclip.app"
 ```
 
+## 社区
+
+- [LINUX DO — 新的理想型社区](https://linux.do/)
+
 ## 开源许可
 
 Nimclip 基于 [Apache License 2.0](./LICENSE) 开源。修改或重新分发时，请保留 `LICENSE`、`NOTICE` 和 Nimclip 原项目归属说明，并标明已修改的内容。
