@@ -7,6 +7,7 @@
     <img src="https://img.shields.io/badge/macOS-15.0%2B-242424?style=flat-square&logo=apple&logoColor=white" alt="macOS 15.0+">
     <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-supported-554f49?style=flat-square" alt="Apple Silicon and Intel">
     <img src="https://img.shields.io/badge/License-Apache--2.0-71685f?style=flat-square" alt="Apache License 2.0">
+    <img src="https://img.shields.io/github/downloads/hukdoesn/Nimclip/total?style=flat-square&label=Release%20Downloads&color=5f6f65" alt="Total GitHub Releases downloads">
   </p>
 </div>
 
