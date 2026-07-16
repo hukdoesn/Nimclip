@@ -1,6 +1,12 @@
 import AppKit
 import SwiftUI
 
+extension NimclipAppearanceMode {
+    var colorScheme: ColorScheme {
+        self == .dark ? .dark : .light
+    }
+}
+
 extension Color {
     static let clipletCanvas = Color(nsColor: .windowBackgroundColor)
     static let clipletSurface = Color(nsColor: .controlBackgroundColor)

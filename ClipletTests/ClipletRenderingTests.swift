@@ -163,6 +163,79 @@ final class ClipletRenderingTests: XCTestCase {
         XCTAssertGreaterThan(settingsData.count, 20_000)
     }
 
+    func testLargeHistoryListOnlyMaterializesReusableVisibleRows() throws {
+        let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
+        let configuration = ModelConfiguration(
+            "ClipletLargeHistoryRenderingTests",
+            schema: schema,
+            isStoredInMemoryOnly: true
+        )
+        let container = try ModelContainer(for: schema, configurations: configuration)
+        let seedContext = ModelContext(container)
+        let referenceDate = Date(timeIntervalSince1970: 100_000)
+        for index in 0..<500 {
+            seedContext.insert(
+                ClipboardItem(
+                    kind: .text,
+                    text: "历史记录 \(index)：用于验证大型列表滚动时的行复用。",
+                    contentHash: "large-history-\(index)",
+                    sourceAppBundleIdentifier: "com.apple.TextEdit",
+                    sourceAppName: "TextEdit",
+                    createdAt: referenceDate.addingTimeInterval(-Double(index)),
+                    updatedAt: referenceDate.addingTimeInterval(-Double(index))
+                )
+            )
+        }
+        try seedContext.save()
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ClipletLargeHistoryRenderingTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let store = try ClipboardStore(
+            modelContainer: container,
+            imagesDirectory: directory
+        )
+        let pasteboard = NSPasteboard(
+            name: .init("ClipletLargeHistoryRenderingTests-\(UUID().uuidString)")
+        )
+        let monitor = ClipboardMonitor(
+            pasteboard: pasteboard,
+            pollingInterval: .seconds(3_600)
+        )
+        let viewModel = ClipletViewModel(store: store, monitor: monitor)
+        defer {
+            viewModel.shutdown()
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        viewModel.prepareToShow()
+        let hostingView = NSHostingView(
+            rootView: MenuBarRootView(viewModel: viewModel)
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 440, height: 600)
+        hostingView.layoutSubtreeIfNeeded()
+        hostingView.displayIfNeeded()
+
+        let tableView = try XCTUnwrap(
+            firstSubview(of: NSTableView.self, in: hostingView),
+            "The SwiftUI List should be backed by a reusable native table"
+        )
+        XCTAssertEqual(tableView.numberOfRows, 500)
+        XCTAssertLessThan(materializedRowCount(in: tableView), 40)
+
+        for row in stride(from: 499, through: 0, by: -25) {
+            tableView.scrollRowToVisible(row)
+            tableView.layoutSubtreeIfNeeded()
+        }
+        XCTAssertLessThan(
+            materializedRowCount(in: tableView),
+            60,
+            "Scrolling must reuse row views instead of retaining the whole history"
+        )
+    }
+
     private func makeFixture() throws -> RenderingFixture {
         let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
         let configuration = ModelConfiguration(
@@ -259,6 +332,29 @@ final class ClipletRenderingTests: XCTestCase {
             )
         }
         return data
+    }
+
+    private func firstSubview<ViewType: NSView>(
+        of type: ViewType.Type,
+        in root: NSView
+    ) -> ViewType? {
+        if let match = root as? ViewType {
+            return match
+        }
+        for subview in root.subviews {
+            if let match = firstSubview(of: type, in: subview) {
+                return match
+            }
+        }
+        return nil
+    }
+
+    private func materializedRowCount(in tableView: NSTableView) -> Int {
+        (0..<tableView.numberOfRows).reduce(into: 0) { count, row in
+            if tableView.rowView(atRow: row, makeIfNecessary: false) != nil {
+                count += 1
+            }
+        }
     }
 }
 

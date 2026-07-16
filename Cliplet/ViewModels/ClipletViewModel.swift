@@ -39,6 +39,7 @@ final class ClipletViewModel {
     private(set) var imageTextIndexTotalCount = 0
     private(set) var imageTextIndexFailureCount = 0
     private(set) var listPresentationGeneration = 0
+    private(set) var selectionScrollGeneration = 0
 
     var onShowRequested: (() -> Void)?
     var onDismissRequested: (() -> Void)?
@@ -60,8 +61,10 @@ final class ClipletViewModel {
     private var queuedImageTextItemIDSet: Set<UUID> = []
     private var imageTextRecognitionGeneration = 0
     private var shouldNotifyWhenImageTextIndexFinishes = false
+    private var lastPresentedNewestItemID: UUID?
     private var revision = 0
     @ObservationIgnored private var presentationKindCache: [String: ClipboardPresentationKind] = [:]
+    @ObservationIgnored private var textPreviewCache: [String: String] = [:]
 
     init(
         store: ClipboardStore,
@@ -76,6 +79,8 @@ final class ClipletViewModel {
         self.launchAtLoginManager = launchAtLoginManager
         self.imageTextRecognizer = imageTextRecognizer
         rebuildVisibleItems()
+        selectedItemID = visibleItems.first?.id
+        lastPresentedNewestItemID = selectedItemID
 
         monitor.onCapture = { [weak self] capture in
             self?.ingest(capture)
@@ -275,11 +280,32 @@ final class ClipletViewModel {
     }
 
     func prepareToShow() {
-        timestampReferenceDate = Date()
-        pasteCoordinator.rememberFrontmostApplication()
+        prepareForImmediateShow()
         rebuildVisibleItems()
-        selectedItemID = items.first?.id
-        listPresentationGeneration &+= 1
+        finishShowing()
+    }
+
+    func prepareForImmediateShow() {
+        pasteCoordinator.rememberFrontmostApplication()
+    }
+
+    func finishShowing() {
+        let currentDate = Date()
+        if currentDate.timeIntervalSince(timestampReferenceDate).magnitude >= 60 {
+            timestampReferenceDate = currentDate
+        }
+
+        let newestItemID = items.first?.id
+        // Preserve the reusable list's selection and scroll position across
+        // quick reopenings. Only return to the top when new clipboard content
+        // has actually arrived since the previous presentation.
+        if newestItemID != lastPresentedNewestItemID {
+            selectedItemID = newestItemID
+            listPresentationGeneration &+= 1
+        } else {
+            ensureValidSelection()
+        }
+        lastPresentedNewestItemID = newestItemID
     }
 
     func presentationKind(for item: ClipboardItem) -> ClipboardPresentationKind {
@@ -291,8 +317,21 @@ final class ClipletViewModel {
         return kind
     }
 
+    func textPreview(for item: ClipboardItem) -> String {
+        let normalized: String
+        if let cached = textPreviewCache[item.contentHash] {
+            normalized = cached
+        } else {
+            normalized = String((item.text ?? "").prefix(800))
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            textPreviewCache[item.contentHash] = normalized
+        }
+        return normalized.isEmpty ? localized("空文本") : normalized
+    }
+
     func requestShow() {
-        prepareToShow()
+        prepareForImmediateShow()
         onShowRequested?()
     }
 
@@ -645,10 +684,12 @@ final class ClipletViewModel {
         guard let selectedItemID,
               let index = items.firstIndex(where: { $0.id == selectedItemID }) else {
             self.selectedItemID = items.first?.id
+            selectionScrollGeneration &+= 1
             return
         }
         let nextIndex = min(max(index + offset, 0), items.count - 1)
         self.selectedItemID = items[nextIndex].id
+        selectionScrollGeneration &+= 1
     }
 
     private func ensureValidSelection() {
@@ -659,6 +700,7 @@ final class ClipletViewModel {
     }
 
     private func rebuildVisibleItems() {
+        prunePresentationKindCacheIfNeeded()
         let selectedTag = store.tags.first { $0.id == selectedTagID }
         let filteredItems = store.filteredItems(
             searchText: searchText,
@@ -673,8 +715,28 @@ final class ClipletViewModel {
                 selectedContentFilter.includes(presentationKind(for: $0))
             }
         }
+        prewarmRowPresentationCaches(for: nextItems)
         guard !Self.haveSameItemOrder(visibleItems, nextItems) else { return }
         visibleItems = nextItems
+    }
+
+    private func prewarmRowPresentationCaches(for items: [ClipboardItem]) {
+        for item in items {
+            _ = presentationKind(for: item)
+            _ = textPreview(for: item)
+        }
+    }
+
+    private func prunePresentationKindCacheIfNeeded() {
+        let maximumCachedCount = max(1_024, store.items.count * 2)
+        guard presentationKindCache.count > maximumCachedCount else { return }
+        let activeHashes = Set(store.items.lazy.map(\.contentHash))
+        presentationKindCache = presentationKindCache.filter {
+            activeHashes.contains($0.key)
+        }
+        textPreviewCache = textPreviewCache.filter {
+            activeHashes.contains($0.key)
+        }
     }
 
     private func enqueueImageTextRecognition(

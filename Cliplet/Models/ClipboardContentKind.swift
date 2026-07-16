@@ -8,6 +8,8 @@ enum ClipboardContentKind: String, Codable, CaseIterable, Identifiable, Sendable
 }
 
 enum ClipboardPresentationKind: String, CaseIterable, Identifiable, Sendable {
+    private static let classificationSampleCharacterLimit = 4_096
+
     case text
     case link
     case code
@@ -41,9 +43,19 @@ enum ClipboardPresentationKind: String, CaseIterable, Identifiable, Sendable {
         guard kind == .text else { return .image }
         guard let text else { return .text }
 
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Clipboard entries can contain hundreds of thousands of characters.
+        // Classification is presentation metadata, so inspecting a bounded
+        // prefix is enough and keeps newly materialized list rows constant-time.
+        let sampleEnd = text.index(
+            text.startIndex,
+            offsetBy: classificationSampleCharacterLimit,
+            limitedBy: text.endIndex
+        ) ?? text.endIndex
+        let isTruncated = sampleEnd != text.endIndex
+        let sample = text[..<sampleEnd]
+        let trimmed = sample.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .text }
-        if isLink(trimmed) { return .link }
+        if !isTruncated, isLink(trimmed) { return .link }
         if looksLikeCode(trimmed) { return .code }
         return .text
     }

@@ -126,22 +126,16 @@ public final class ClipboardMonitor {
                 return .temporarilyUnavailable
             }
 
-            let archiveResult = readPasteboardArchive()
             return .captured(
                 CapturedContentResult(
                     content: .image(
                         data: data,
                         typeIdentifier: imageType.rawValue,
-                        archive: archiveResult.archive.flatMap {
-                            archiveRequiringStorage(
-                                $0,
-                                fallbackImageData: data,
-                                typeIdentifier: imageType.rawValue
-                            )
-                        }
+                        archive: nil
                     ),
-                    // A complete primary image is enough to preserve a screenshot.
-                    // Oversized auxiliary TIFF/PNG representations are optional.
+                    // The primary representation is stored as the original file.
+                    // Reading every auxiliary PNG/TIFF representation duplicates
+                    // large screenshots in memory without improving restoration.
                     didOmitRepresentations: false
                 )
             )
@@ -288,21 +282,6 @@ public final class ClipboardMonitor {
               archive.items[0].representations.count == 1,
               let representation = archive.items[0].representations.first,
               representation.typeIdentifier == NSPasteboard.PasteboardType.string.rawValue else {
-            return archive
-        }
-        return nil
-    }
-
-    private func archiveRequiringStorage(
-        _ archive: ClipboardPasteboardArchive,
-        fallbackImageData: Data,
-        typeIdentifier: String
-    ) -> ClipboardPasteboardArchive? {
-        guard archive.items.count == 1,
-              archive.items[0].representations.count == 1,
-              let representation = archive.items[0].representations.first,
-              representation.typeIdentifier == typeIdentifier,
-              representation.data == fallbackImageData else {
             return archive
         }
         return nil

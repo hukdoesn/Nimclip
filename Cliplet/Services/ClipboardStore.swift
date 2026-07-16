@@ -213,7 +213,7 @@ final class ClipboardStore: ObservableObject {
     func ingestImage(
         _ data: Data,
         typeIdentifier: String? = nil,
-        archive: ClipboardPasteboardArchive? = nil,
+        archive _: ClipboardPasteboardArchive? = nil,
         sourceAppBundleIdentifier: String? = nil,
         sourceAppName: String? = nil
     ) throws -> ClipboardItem {
@@ -222,19 +222,17 @@ final class ClipboardStore: ObservableObject {
                 ClipboardStoreError.imageTooLarge(maximumBytes: Self.maximumImageBytes)
             )
         }
-        guard let imageSource = CGImageSourceCreateWithData(data as CFData, nil),
+        guard let imageSource = CGImageSourceCreateWithData(
+            data as CFData,
+            [kCGImageSourceShouldCache: false] as CFDictionary
+        ),
               CGImageSourceGetCount(imageSource) > 0 else {
             throw report(ClipboardStoreError.invalidImageData)
         }
 
-        let contentHash: String
-        if let archive {
-            contentHash = Self.sha256Hex(for: archive)
-        } else {
-            var hashInput = Data("image\0".utf8)
-            hashInput.append(data)
-            contentHash = Self.sha256Hex(hashInput)
-        }
+        var hashInput = Data("image\0".utf8)
+        hashInput.append(data)
+        let contentHash = Self.sha256Hex(hashInput)
         if let existing = item(withHash: contentHash) {
             if let typeIdentifier {
                 existing.imageTypeIdentifier = typeIdentifier
@@ -502,20 +500,21 @@ final class ClipboardStore: ObservableObject {
 
         let expired = items.filter { !$0.isFavorite && $0.updatedAt < cutoffDate }
         let expiredIDs = Set(expired.map(\.id))
-        for item in expired {
-            removeFiles(for: item)
-            modelContext.delete(item)
-        }
-
         let remainingNonFavorites = items
             .filter { !$0.isFavorite && !expiredIDs.contains($0.id) }
             .sorted { $0.updatedAt > $1.updatedAt }
         let overflowCount = max(0, remainingNonFavorites.count - settings.historyLimit)
-        if overflowCount > 0 {
-            for item in remainingNonFavorites.suffix(overflowCount) {
-                removeFiles(for: item)
-                modelContext.delete(item)
-            }
+        let overflow = overflowCount > 0
+            ? Array(remainingNonFavorites.suffix(overflowCount))
+            : []
+        let itemsToDelete = expired + overflow
+        guard !itemsToDelete.isEmpty else {
+            return
+        }
+
+        for item in itemsToDelete {
+            removeFiles(for: item)
+            modelContext.delete(item)
         }
 
         try saveAndRefresh()
@@ -720,32 +719,34 @@ final class ClipboardStore: ObservableObject {
     }
 
     private static func thumbnailPNGData(from imageSource: CGImageSource) throws -> Data {
-        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(
-            imageSource,
-            0,
-            [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: 320,
-                kCGImageSourceShouldCacheImmediately: true
-            ] as CFDictionary
-        ) else {
-            throw ClipboardStoreError.invalidImageData
-        }
+        try autoreleasepool {
+            guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(
+                imageSource,
+                0,
+                [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: 320,
+                    kCGImageSourceShouldCacheImmediately: true
+                ] as CFDictionary
+            ) else {
+                throw ClipboardStoreError.invalidImageData
+            }
 
-        let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(
-            data,
-            UTType.png.identifier as CFString,
-            1,
-            nil
-        ) else {
-            throw ClipboardStoreError.invalidImageData
+            let data = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(
+                data,
+                UTType.png.identifier as CFString,
+                1,
+                nil
+            ) else {
+                throw ClipboardStoreError.invalidImageData
+            }
+            CGImageDestinationAddImage(destination, thumbnail, nil)
+            guard CGImageDestinationFinalize(destination) else {
+                throw ClipboardStoreError.invalidImageData
+            }
+            return data as Data
         }
-        CGImageDestinationAddImage(destination, thumbnail, nil)
-        guard CGImageDestinationFinalize(destination) else {
-            throw ClipboardStoreError.invalidImageData
-        }
-        return data as Data
     }
 }

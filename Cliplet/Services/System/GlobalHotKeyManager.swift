@@ -11,7 +11,7 @@ private final class GlobalHotKeyPhysicalStateMonitor: @unchecked Sendable {
     )
     private var timer: DispatchSourceTimer?
     private var shortcut: GlobalHotKeyShortcut
-    private var lastIsPressed = false
+    private var transitionState = GlobalHotKeyPhysicalTransitionState()
     private let onStateChange: StateChangeHandler
 
     init(
@@ -48,10 +48,14 @@ private final class GlobalHotKeyPhysicalStateMonitor: @unchecked Sendable {
         queue.async { [weak self] in
             guard let self else { return }
             self.shortcut = shortcut
-            if lastIsPressed {
-                lastIsPressed = false
-                onStateChange(false)
-            }
+            transitionState.reset()
+            onStateChange(false)
+        }
+    }
+
+    func registeredHotKeyEventReceived() {
+        queue.async { [weak self] in
+            self?.transitionState.registeredHotKeyEventReceived()
         }
     }
 
@@ -61,7 +65,7 @@ private final class GlobalHotKeyPhysicalStateMonitor: @unchecked Sendable {
             timer.setEventHandler {}
             timer.cancel()
             self.timer = nil
-            lastIsPressed = false
+            transitionState.reset()
         }
     }
 
@@ -77,9 +81,10 @@ private final class GlobalHotKeyPhysicalStateMonitor: @unchecked Sendable {
             keyIsPressed: keyIsPressed,
             activeModifiers: activeModifiers
         )
-        guard isPressed != lastIsPressed else { return }
-        lastIsPressed = isPressed
-        onStateChange(isPressed)
+        guard let stateChange = transitionState.update(isPressed: isPressed) else {
+            return
+        }
+        onStateChange(stateChange)
     }
 
     private static func carbonModifiers(from flags: CGEventFlags) -> UInt32 {
@@ -89,6 +94,39 @@ private final class GlobalHotKeyPhysicalStateMonitor: @unchecked Sendable {
         if flags.contains(.maskAlternate) { modifiers |= UInt32(optionKey) }
         if flags.contains(.maskControl) { modifiers |= UInt32(controlKey) }
         return modifiers
+    }
+}
+
+struct GlobalHotKeyPhysicalTransitionState {
+    private(set) var lastIsPressed = false
+    private var registeredEventNeedsRelease = false
+
+    mutating func registeredHotKeyEventReceived() {
+        registeredEventNeedsRelease = true
+    }
+
+    mutating func update(isPressed: Bool) -> Bool? {
+        if isPressed != lastIsPressed {
+            lastIsPressed = isPressed
+            if !isPressed {
+                registeredEventNeedsRelease = false
+            }
+            return isPressed
+        }
+
+        // Carbon can deliver a complete press before the physical-state timer
+        // samples it. Emit the missing release so the shared latch cannot stay
+        // stuck and suppress every later shortcut.
+        if !isPressed, registeredEventNeedsRelease {
+            registeredEventNeedsRelease = false
+            return false
+        }
+        return nil
+    }
+
+    mutating func reset() {
+        lastIsPressed = false
+        registeredEventNeedsRelease = false
     }
 }
 
@@ -287,6 +325,7 @@ public final class GlobalHotKeyManager {
               identifier.id == Self.identifier else {
             return
         }
+        physicalStateMonitor?.registeredHotKeyEventReceived()
         guard chordLatch.acceptRegisteredHotKeyEvent() else { return }
         onTrigger?()
     }

@@ -5,6 +5,7 @@ import SwiftUI
 struct ClipboardItemRow: View {
     let item: ClipboardItem
     let tags: [ClipTag]
+    let textPreview: String
     let thumbnailURL: URL?
     let presentationKind: ClipboardPresentationKind
     let referenceDate: Date
@@ -25,14 +26,7 @@ struct ClipboardItemRow: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
-
-    private var textPreview: String {
-        guard let text = item.text else { return language.localized("空文本") }
-        let normalized = String(text.prefix(800))
-            .replacingOccurrences(of: "\n", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return normalized.isEmpty ? language.localized("空文本") : normalized
-    }
+    @State private var sourceAppIcon: NSImage?
 
     private var sourceName: String {
         guard let sourceAppName = item.sourceAppName, !sourceAppName.isEmpty else {
@@ -88,7 +82,7 @@ struct ClipboardItemRow: View {
                     )
                         .labelStyle(.titleAndIcon)
 
-                    if let firstTag = item.tags.first {
+                    if !tags.isEmpty, let firstTag = item.tags.first {
                         Circle()
                             .fill(Color(clipletHex: firstTag.colorHex))
                             .frame(width: 6, height: 6)
@@ -201,6 +195,12 @@ struct ClipboardItemRow: View {
             isHovered = hovering
             onHoverChange(hovering)
         }
+        .task(id: item.sourceAppBundleIdentifier) {
+            await loadSourceAppIcon()
+        }
+        .onDisappear {
+            sourceAppIcon = nil
+        }
         .contextMenu { contextMenu }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
@@ -214,9 +214,6 @@ struct ClipboardItemRow: View {
 
     @ViewBuilder
     private var thumbnail: some View {
-        let sourceAppIcon = ClipletSourceAppIconProvider.icon(
-            bundleIdentifier: item.sourceAppBundleIdentifier
-        )
         if item.kind == .image {
             ClipletImageThumbnail(url: thumbnailURL)
         } else {
@@ -334,28 +331,84 @@ struct ClipboardItemRow: View {
     private func hasTag(_ tag: ClipTag) -> Bool {
         item.tags.contains { $0.id == tag.id }
     }
+
+    @MainActor
+    private func loadSourceAppIcon() async {
+        sourceAppIcon = nil
+        guard item.kind == .text,
+              let bundleIdentifier = item.sourceAppBundleIdentifier else {
+            return
+        }
+        let cgImage = await ClipletSourceAppIconLoader.shared.icon(
+            bundleIdentifier: bundleIdentifier
+        )
+        guard !Task.isCancelled, let cgImage else { return }
+        sourceAppIcon = NSImage(cgImage: cgImage, size: .zero)
+    }
 }
 
-@MainActor
-private enum ClipletSourceAppIconProvider {
-    private static let cache = NSCache<NSString, NSImage>()
-    private static var unavailableBundleIdentifiers = Set<String>()
+private actor ClipletSourceAppIconLoader {
+    static let shared = ClipletSourceAppIconLoader()
 
-    static func icon(bundleIdentifier: String?) -> NSImage? {
-        guard let bundleIdentifier, !bundleIdentifier.isEmpty else { return nil }
+    private static let iconPixelSize = 76
+    private let cache: NSCache<NSString, CGImage> = {
+        let cache = NSCache<NSString, CGImage>()
+        cache.countLimit = 64
+        cache.totalCostLimit = 2 * 1_048_576
+        return cache
+    }()
+    private var unavailableBundleIdentifiers = Set<String>()
+
+    func icon(bundleIdentifier: String) async -> CGImage? {
+        guard !bundleIdentifier.isEmpty, !Task.isCancelled else { return nil }
         let key = bundleIdentifier as NSString
         if let cached = cache.object(forKey: key) { return cached }
         guard !unavailableBundleIdentifiers.contains(bundleIdentifier) else { return nil }
-        guard let applicationURL = NSWorkspace.shared.urlForApplication(
-            withBundleIdentifier: bundleIdentifier
+        guard let applicationURL = await MainActor.run(body: {
+            NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: bundleIdentifier
+            )
+        }), !Task.isCancelled,
+        let iconURL = Self.iconURL(forApplicationAt: applicationURL),
+        let source = CGImageSourceCreateWithURL(
+            iconURL as CFURL,
+            [kCGImageSourceShouldCache: false] as CFDictionary
+        ),
+        let icon = CGImageSourceCreateThumbnailAtIndex(
+            source,
+            0,
+            [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: Self.iconPixelSize,
+                kCGImageSourceShouldCacheImmediately: true
+            ] as CFDictionary
         ) else {
             unavailableBundleIdentifiers.insert(bundleIdentifier)
             return nil
         }
-        let icon = NSWorkspace.shared.icon(forFile: applicationURL.path)
-        icon.size = NSSize(width: 38, height: 38)
-        cache.setObject(icon, forKey: key)
+        guard !Task.isCancelled else { return nil }
+        cache.setObject(
+            icon,
+            forKey: key,
+            cost: icon.bytesPerRow * icon.height
+        )
         return icon
+    }
+
+    private static func iconURL(forApplicationAt applicationURL: URL) -> URL? {
+        guard let bundle = Bundle(url: applicationURL),
+              var iconName = bundle.object(
+                  forInfoDictionaryKey: "CFBundleIconFile"
+              ) as? String,
+              !iconName.isEmpty,
+              let resourcesURL = bundle.resourceURL else {
+            return nil
+        }
+        if URL(fileURLWithPath: iconName).pathExtension.isEmpty {
+            iconName += ".icns"
+        }
+        return resourcesURL.appendingPathComponent(iconName)
     }
 }
 
@@ -388,6 +441,9 @@ private struct ClipletImageThumbnail: View {
         .task(id: url) {
             await loadImage()
         }
+        .onDisappear {
+            image = nil
+        }
         .accessibilityHidden(true)
     }
 
@@ -395,64 +451,71 @@ private struct ClipletImageThumbnail: View {
     private func loadImage() async {
         image = nil
         guard let url else { return }
-        let loadingTask = Task.detached(priority: .utility) {
-            ClipletThumbnailCache.image(at: url)
-        }
-        let cgImage = await withTaskCancellationHandler {
-            await loadingTask.value
-        } onCancel: {
-            loadingTask.cancel()
-        }
+        let cgImage = await ClipletThumbnailDecoder.shared.image(at: url)
         guard !Task.isCancelled, let cgImage else { return }
         image = NSImage(cgImage: cgImage, size: .zero)
+    }
+}
+
+private actor ClipletThumbnailDecoder {
+    static let shared = ClipletThumbnailDecoder()
+
+    func image(at url: URL) -> CGImage? {
+        guard !Task.isCancelled else { return nil }
+        return ClipletThumbnailCache.image(at: url)
     }
 }
 
 private final class ClipletThumbnailCache: @unchecked Sendable {
     nonisolated(unsafe) private static let cache: NSCache<NSString, CGImage> = {
         let cache = NSCache<NSString, CGImage>()
-        cache.countLimit = 48
-        cache.totalCostLimit = 4 * 1_048_576
+        cache.countLimit = 160
+        cache.totalCostLimit = 8 * 1_048_576
         return cache
     }()
     private static let unavailablePathsLock = NSLock()
     nonisolated(unsafe) private static var unavailablePaths = Set<String>()
 
     static func image(at url: URL) -> CGImage? {
-        guard !Task.isCancelled else { return nil }
-        let path = url.path
-        let key = path as NSString
-        if let cached = cache.object(forKey: key) { return cached }
-        unavailablePathsLock.lock()
-        let isUnavailable = unavailablePaths.contains(path)
-        unavailablePathsLock.unlock()
-        guard !isUnavailable else { return nil }
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
-            markUnavailable(path)
-            return nil
+        autoreleasepool {
+            guard !Task.isCancelled else { return nil }
+            let path = url.path
+            let key = path as NSString
+            if let cached = cache.object(forKey: key) { return cached }
+            unavailablePathsLock.lock()
+            let isUnavailable = unavailablePaths.contains(path)
+            unavailablePathsLock.unlock()
+            guard !isUnavailable else { return nil }
+            guard let source = CGImageSourceCreateWithURL(
+                url as CFURL,
+                [kCGImageSourceShouldCache: false] as CFDictionary
+            ) else {
+                markUnavailable(path)
+                return nil
+            }
+            guard !Task.isCancelled else { return nil }
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 96,
+                kCGImageSourceShouldCacheImmediately: true
+            ]
+            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
+                source,
+                0,
+                options as CFDictionary
+            ) else {
+                markUnavailable(path)
+                return nil
+            }
+            guard !Task.isCancelled else { return nil }
+            cache.setObject(
+                cgImage,
+                forKey: key,
+                cost: cgImage.bytesPerRow * cgImage.height
+            )
+            return cgImage
         }
-        guard !Task.isCancelled else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 96,
-            kCGImageSourceShouldCacheImmediately: true
-        ]
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
-            source,
-            0,
-            options as CFDictionary
-        ) else {
-            markUnavailable(path)
-            return nil
-        }
-        guard !Task.isCancelled else { return nil }
-        cache.setObject(
-            cgImage,
-            forKey: key,
-            cost: cgImage.bytesPerRow * cgImage.height
-        )
-        return cgImage
     }
 
     static func removeAll() {
@@ -477,6 +540,7 @@ struct ClipboardItemExpandedPreview: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var loadedPreviewImage: NSImage?
+    @State private var sourceAppIcon: NSImage?
 
     init(
         item: ClipboardItem,
@@ -514,12 +578,6 @@ struct ClipboardItemExpandedPreview: View {
         item.presentationKind
     }
 
-    private var sourceAppIcon: NSImage? {
-        ClipletSourceAppIconProvider.icon(
-            bundleIdentifier: item.sourceAppBundleIdentifier
-        )
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             previewBar
@@ -539,6 +597,13 @@ struct ClipboardItemExpandedPreview: View {
         .onHover(perform: onHoverChange)
         .task(id: previewImageTaskID) {
             await loadPreviewImage()
+        }
+        .task(id: item.sourceAppBundleIdentifier) {
+            await loadSourceAppIcon()
+        }
+        .onDisappear {
+            loadedPreviewImage = nil
+            sourceAppIcon = nil
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
@@ -657,29 +722,49 @@ struct ClipboardItemExpandedPreview: View {
     @MainActor
     private func loadPreviewImage() async {
         loadedPreviewImage = nil
-        let imageURL = imageURL
-        let thumbnailURL = thumbnailURL
-        let maximumPixelSize = maximumPreviewPixelSize
-        let loadingTask = Task.detached(priority: .userInitiated) {
-            () -> CGImage? in
-            if let image = ClipletPreviewImageCache.image(
-                at: imageURL,
-                maximumPixelSize: maximumPixelSize
-            ) {
-                return image
-            }
-            return ClipletPreviewImageCache.image(
-                at: thumbnailURL,
-                maximumPixelSize: maximumPixelSize
-            )
-        }
-        let cgImage = await withTaskCancellationHandler {
-            await loadingTask.value
-        } onCancel: {
-            loadingTask.cancel()
-        }
+        let cgImage = await ClipletPreviewImageDecoder.shared.image(
+            at: imageURL,
+            fallbackURL: thumbnailURL,
+            maximumPixelSize: maximumPreviewPixelSize
+        )
         guard !Task.isCancelled, let cgImage else { return }
         loadedPreviewImage = NSImage(cgImage: cgImage, size: .zero)
+    }
+
+    @MainActor
+    private func loadSourceAppIcon() async {
+        sourceAppIcon = nil
+        guard let bundleIdentifier = item.sourceAppBundleIdentifier else {
+            return
+        }
+        let cgImage = await ClipletSourceAppIconLoader.shared.icon(
+            bundleIdentifier: bundleIdentifier
+        )
+        guard !Task.isCancelled, let cgImage else { return }
+        sourceAppIcon = NSImage(cgImage: cgImage, size: .zero)
+    }
+}
+
+private actor ClipletPreviewImageDecoder {
+    static let shared = ClipletPreviewImageDecoder()
+
+    func image(
+        at url: URL?,
+        fallbackURL: URL?,
+        maximumPixelSize: Int
+    ) -> CGImage? {
+        guard !Task.isCancelled else { return nil }
+        if let image = ClipletPreviewImageCache.image(
+            at: url,
+            maximumPixelSize: maximumPixelSize
+        ) {
+            return image
+        }
+        guard !Task.isCancelled else { return nil }
+        return ClipletPreviewImageCache.image(
+            at: fallbackURL,
+            maximumPixelSize: maximumPixelSize
+        )
     }
 }
 
@@ -696,33 +781,38 @@ final class ClipletPreviewImageCache: @unchecked Sendable {
     }
 
     static func image(at url: URL?, maximumPixelSize: Int) -> CGImage? {
-        guard !Task.isCancelled, let url else { return nil }
-        let key = "\(url.path)#\(maximumPixelSize)" as NSString
-        if let cached = cache.object(forKey: key) { return cached }
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
-            return nil
+        autoreleasepool {
+            guard !Task.isCancelled, let url else { return nil }
+            let key = "\(url.path)#\(maximumPixelSize)" as NSString
+            if let cached = cache.object(forKey: key) { return cached }
+            guard let source = CGImageSourceCreateWithURL(
+                url as CFURL,
+                [kCGImageSourceShouldCache: false] as CFDictionary
+            ) else {
+                return nil
+            }
+            guard !Task.isCancelled else { return nil }
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maximumPixelSize,
+                kCGImageSourceShouldCacheImmediately: true
+            ]
+            guard let image = CGImageSourceCreateThumbnailAtIndex(
+                source,
+                0,
+                options as CFDictionary
+            ) else {
+                return nil
+            }
+            guard !Task.isCancelled else { return nil }
+            cache.setObject(
+                image,
+                forKey: key,
+                cost: image.bytesPerRow * image.height
+            )
+            return image
         }
-        guard !Task.isCancelled else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maximumPixelSize,
-            kCGImageSourceShouldCacheImmediately: true
-        ]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(
-            source,
-            0,
-            options as CFDictionary
-        ) else {
-            return nil
-        }
-        guard !Task.isCancelled else { return nil }
-        cache.setObject(
-            image,
-            forKey: key,
-            cost: image.bytesPerRow * image.height
-        )
-        return image
     }
 }
 

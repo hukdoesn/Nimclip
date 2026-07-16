@@ -34,6 +34,17 @@ final class ClipboardProductivityTests: XCTestCase {
         )
     }
 
+    func testPresentationKindClassificationBoundsVeryLargeClipboardText() {
+        let text = String(repeating: "普通文本内容 ", count: 100_000)
+            + "\nfunc delayedMarker() {}\nclass DelayedMarker {}"
+
+        XCTAssertEqual(
+            ClipboardPresentationKind.classify(kind: .text, text: text),
+            .text,
+            "Presentation classification must not rescan an entire oversized clipboard entry"
+        )
+    }
+
     func testContentFiltersOnlyIncludeTheirMatchingKind() {
         XCTAssertTrue(ClipboardContentFilter.all.includes(.image))
         XCTAssertTrue(ClipboardContentFilter.link.includes(.link))
@@ -142,7 +153,8 @@ final class ClipboardProductivityTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedItemID, newest.id)
         XCTAssertEqual(
             viewModel.listPresentationGeneration,
-            firstPresentationGeneration + 2
+            firstPresentationGeneration + 1,
+            "Reopening without new content must preserve the reusable list position"
         )
     }
 

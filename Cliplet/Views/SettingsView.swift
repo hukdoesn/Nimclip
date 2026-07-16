@@ -63,6 +63,7 @@ struct SettingsView: View {
         }
         .frame(width: 660, height: 520)
         .environment(\.locale, viewModel.language.locale)
+        .preferredColorScheme(viewModel.appearanceMode.colorScheme)
         .background(Color.clipletCanvas)
         .tint(Color.clipletSelection)
         .overlay(alignment: .bottom) {

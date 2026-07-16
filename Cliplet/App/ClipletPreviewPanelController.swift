@@ -6,7 +6,11 @@ import SwiftUI
 final class ClipletPreviewPanelController {
     private(set) var panel: NSPanel?
     private var hostingController: NSHostingController<ClipboardItemExpandedPreview>?
-    private var imageSizeCache: [URL: CGSize] = [:]
+    private let imageSizeCache: NSCache<NSURL, NSValue> = {
+        let cache = NSCache<NSURL, NSValue>()
+        cache.countLimit = 256
+        return cache
+    }()
     private var pendingHideTask: Task<Void, Never>?
     private var isPointerInsidePreview = false
     private let hideDelay: Duration
@@ -237,14 +241,20 @@ final class ClipletPreviewPanelController {
 
     private func cachedImagePixelSize(at url: URL?) -> CGSize? {
         guard let url else { return nil }
-        if let cached = imageSizeCache[url] { return cached }
+        let key = url as NSURL
+        if let cached = imageSizeCache.object(forKey: key) {
+            return cached.sizeValue
+        }
         guard let size = imagePixelSize(at: url) else { return nil }
-        imageSizeCache[url] = size
+        imageSizeCache.setObject(NSValue(size: size), forKey: key)
         return size
     }
 
     private func imagePixelSize(at url: URL) -> CGSize? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+        guard let source = CGImageSourceCreateWithURL(
+            url as CFURL,
+            [kCGImageSourceShouldCache: false] as CFDictionary
+        ),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
                 as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,

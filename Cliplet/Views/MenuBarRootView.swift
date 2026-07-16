@@ -34,6 +34,7 @@ struct MenuBarRootView: View {
         }
         .frame(width: 440, height: 600)
         .environment(\.locale, viewModel.language.locale)
+        .preferredColorScheme(viewModel.appearanceMode.colorScheme)
         .background(Color.clipletCanvas)
         .overlay(alignment: .bottom) {
             if let message = viewModel.toastMessage {
@@ -49,9 +50,7 @@ struct MenuBarRootView: View {
         .onAppear {
             isSearchFocused = true
             updateOptionState(
-                ModifierKeyMonitor.optionIsPressed(
-                    in: NSEvent.modifierFlags
-                )
+                ModifierKeyMonitor.isOptionPhysicallyPressed
             )
         }
         .onDisappear {
@@ -287,6 +286,7 @@ struct MenuBarRootView: View {
                         ClipboardItemRow(
                             item: item,
                             tags: viewModel.tags,
+                            textPreview: viewModel.textPreview(for: item),
                             thumbnailURL: viewModel.thumbnailURL(for: item),
                             presentationKind: viewModel.presentationKind(for: item),
                             referenceDate: viewModel.timestampReferenceDate,
@@ -317,18 +317,23 @@ struct MenuBarRootView: View {
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.automatic)
                 .contentMargins(.vertical, 5, for: .scrollContent)
-                .id(viewModel.listPresentationGeneration)
-                .onChange(of: viewModel.selectedItemID) { _, itemID in
-                    guard let itemID else { return }
-                    withAnimation(.easeOut(duration: 0.12)) {
-                        proxy.scrollTo(itemID, anchor: .center)
-                    }
+                .onChange(of: viewModel.selectionScrollGeneration) { _, _ in
+                    guard let itemID = viewModel.selectedItemID else { return }
+                    proxy.scrollTo(itemID, anchor: .center)
                 }
                 .onChange(of: viewModel.listPresentationGeneration) { _, _ in
                     guard let firstItemID = viewModel.items.first?.id else {
                         return
                     }
                     proxy.scrollTo(firstItemID, anchor: .top)
+                }
+                /*
+                 Keeping the List alive is important for row reuse. Replacing
+                 its identity on every popover presentation reconstructs all
+                 500 rows and causes both a delayed open and choppy scrolling.
+                 */
+                .transaction { transaction in
+                    transaction.animation = nil
                 }
             }
         }
@@ -535,7 +540,7 @@ struct MenuBarRootView: View {
 
             // Reading AppKit's current flags also covers holding Option before
             // the pointer enters the row.
-            if NSEvent.modifierFlags.contains(.option) {
+            if ModifierKeyMonitor.isOptionPhysicallyPressed {
                 previewInteraction.isOptionPressed = true
                 previewInteraction.previewItemID = itemID
                 notifyPreviewChange()

@@ -18,7 +18,10 @@ struct ClipboardImageTextRecognizer: ClipboardImageTextRecognizing {
             try autoreleasepool {
                 try Task.checkCancellation()
 
-                guard let source = CGImageSourceCreateWithURL(imageURL as CFURL, nil),
+                guard let source = CGImageSourceCreateWithURL(
+                    imageURL as CFURL,
+                    [kCGImageSourceShouldCache: false] as CFDictionary
+                ),
                       let image = CGImageSourceCreateThumbnailAtIndex(
                           source,
                           0,

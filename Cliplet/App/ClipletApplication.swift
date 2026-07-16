@@ -15,7 +15,12 @@ enum ClipletApplication {
 }
 
 @MainActor
-final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class ClipletAppDelegate:
+    NSObject,
+    NSApplicationDelegate,
+    NSWindowDelegate,
+    NSPopoverDelegate
+{
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private let previewPanelController = ClipletPreviewPanelController()
@@ -40,9 +45,9 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             applyAppearance(viewModel.appearanceMode, animated: false)
             configureStatusItem()
             configurePopover(with: viewModel)
-            modifierKeyMonitor.start()
-
-            viewModel.onShowRequested = { [weak self] in self?.showPopover() }
+            viewModel.onShowRequested = { [weak self] in
+                self?.showPopover(activateApplication: true)
+            }
             viewModel.onDismissRequested = { [weak self] in self?.closePopover() }
             viewModel.onOpenSettingsRequested = { [weak self] in self?.showSettings() }
             viewModel.onStatusChanged = { [weak self] isPaused in
@@ -70,7 +75,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
                 }
             } else if ProcessInfo.processInfo.environment["CLIPLET_SHOW_ON_LAUNCH"] == "1" {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                    self?.showPopover()
+                    self?.showPopover(activateApplication: true)
                 }
             }
             #endif
@@ -97,6 +102,15 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         guard let window = notification.object as? NSWindow,
               window === settingsWindow else { return }
         NSApplication.shared.setActivationPolicy(.accessory)
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        guard let closedPopover = notification.object as? NSPopover,
+              closedPopover === popover else {
+            return
+        }
+        modifierKeyMonitor.stop()
+        previewPanelController.hide()
     }
 
     private func configureMainMenu() {
@@ -220,11 +234,19 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     private func configurePopover(with viewModel: ClipletViewModel) {
         popover.behavior = .transient
-        popover.animates = true
+        popover.animates = false
+        popover.delegate = self
         popover.contentSize = NSSize(width: 440, height: 600)
-        popover.contentViewController = NSHostingController(
+        let controller = NSHostingController(
             rootView: makeMenuRootView(with: viewModel)
         )
+        controller.view.appearance = viewModel.appearanceMode.appearance
+        // Build and lay out the first visible rows during launch so the first
+        // shortcut press does not also pay SwiftUI's initial view-construction
+        // cost. The List remains alive and reuses its rows across presentations.
+        controller.view.frame = NSRect(origin: .zero, size: popover.contentSize)
+        controller.view.layoutSubtreeIfNeeded()
+        popover.contentViewController = controller
     }
 
     @objc
@@ -232,23 +254,34 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         if popover.isShown {
             closePopover()
         } else {
-            viewModel?.prepareToShow()
-            showPopover()
+            viewModel?.prepareForImmediateShow()
+            showPopover(activateApplication: false)
         }
     }
 
-    private func showPopover() {
+    private func showPopover(activateApplication: Bool) {
         guard let button = statusItem?.button else { return }
+        modifierKeyMonitor.start()
         if !popover.isShown {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
-        // The status-item click already gives AppKit the user interaction it
-        // needs to focus the popover. Forcing an accessory app to activate here
-        // can repeatedly switch the system menu bar away from the frontmost app.
-        popover.contentViewController?.view.window?.makeKey()
+
+        // Return to AppKit's run loop after ordering the prebuilt popover. App
+        // activation and first-responder changes can synchronously coordinate
+        // with the previous application, so they stay off the visual critical
+        // path of the shortcut.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, popover.isShown else { return }
+            if activateApplication, !NSApplication.shared.isActive {
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+            popover.contentViewController?.view.window?.makeKey()
+            viewModel?.finishShowing()
+        }
     }
 
     private func closePopover() {
+        modifierKeyMonitor.stop()
         previewPanelController.hide()
         popover.performClose(nil)
     }
@@ -284,6 +317,7 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         popover.contentViewController?.view.appearance = appearance
         popover.contentViewController?.view.window?.appearance = appearance
         settingsWindow?.appearance = appearance
+        settingsWindow?.contentViewController?.view.appearance = appearance
         previewPanelController.applyAppearance(appearance)
         #if DEBUG
         debugPreviewWindow?.appearance = appearance
@@ -439,7 +473,10 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
                     navigation: settingsNavigation
                 )
             )
+            let appearance = viewModel.appearanceMode.appearance
+            controller.view.appearance = appearance
             let window = NSWindow(contentViewController: controller)
+            window.appearance = appearance
             window.title = "Nimclip"
             window.styleMask = [.titled, .closable, .miniaturizable]
             window.setContentSize(NSSize(width: 660, height: 520))
@@ -449,6 +486,10 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             window.center()
             settingsWindow = window
         }
+
+        let appearance = viewModel.appearanceMode.appearance
+        settingsWindow?.appearance = appearance
+        settingsWindow?.contentViewController?.view.appearance = appearance
 
         NSApplication.shared.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)

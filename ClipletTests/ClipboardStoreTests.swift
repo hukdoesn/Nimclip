@@ -328,6 +328,42 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertNil(fixture.store.pasteboardArchive(for: item))
     }
 
+    func testSameImageDeduplicatesAcrossDifferentAuxiliaryRepresentations() throws {
+        let fixture = try makeStore()
+        defer { fixture.cleanup() }
+
+        let pngData = try XCTUnwrap(
+            Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+        )
+        let firstArchive = ClipboardPasteboardArchive(
+            items: [
+                .init(
+                    representations: [
+                        .init(typeIdentifier: UTType.png.identifier, data: pngData),
+                        .init(typeIdentifier: "com.example.first", data: Data([1]))
+                    ]
+                )
+            ]
+        )
+        let secondArchive = ClipboardPasteboardArchive(
+            items: [
+                .init(
+                    representations: [
+                        .init(typeIdentifier: UTType.png.identifier, data: pngData),
+                        .init(typeIdentifier: "com.example.second", data: Data([2]))
+                    ]
+                )
+            ]
+        )
+
+        let first = try fixture.store.ingestImage(pngData, archive: firstArchive)
+        let duplicate = try fixture.store.ingestImage(pngData, archive: secondArchive)
+
+        XCTAssertEqual(duplicate.id, first.id)
+        XCTAssertEqual(fixture.store.items.count, 1)
+        XCTAssertNil(duplicate.pasteboardArchiveData)
+    }
+
     func testStoreMigratesLegacyImageArchiveData() throws {
         let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
         let configuration = ModelConfiguration(

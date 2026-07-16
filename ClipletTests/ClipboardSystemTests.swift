@@ -78,6 +78,29 @@ final class ClipboardSystemTests: XCTestCase {
         XCTAssertTrue(latch.acceptRegisteredHotKeyEvent())
     }
 
+    func testMissedPhysicalPressStillEmitsReleaseAfterCarbonEvent() {
+        var transition = GlobalHotKeyPhysicalTransitionState()
+
+        transition.registeredHotKeyEventReceived()
+
+        XCTAssertEqual(transition.update(isPressed: false), false)
+        XCTAssertNil(transition.update(isPressed: false))
+        XCTAssertEqual(transition.update(isPressed: true), true)
+        XCTAssertEqual(transition.update(isPressed: false), false)
+    }
+
+    func testRepeatedQuickCarbonHotKeysEachReceiveASyntheticRelease() {
+        var transition = GlobalHotKeyPhysicalTransitionState()
+        var latch = GlobalHotKeyChordLatch()
+
+        for _ in 0..<3 {
+            XCTAssertTrue(latch.acceptRegisteredHotKeyEvent())
+            transition.registeredHotKeyEventReceived()
+            XCTAssertEqual(transition.update(isPressed: false), false)
+            XCTAssertFalse(latch.update(isPressed: false))
+        }
+    }
+
     func testCustomizedGlobalHotKeyAlsoIgnoresPressOrder() {
         let shortcut = GlobalHotKeyShortcut(
             keyCode: UInt32(kVK_ANSI_Q),
@@ -158,11 +181,12 @@ final class ClipboardSystemTests: XCTestCase {
 
         monitor.pollNow()
 
-        guard case let .image(data, typeIdentifier, _) = try XCTUnwrap(received).content else {
+        guard case let .image(data, typeIdentifier, archive) = try XCTUnwrap(received).content else {
             return XCTFail("Expected screenshot image capture")
         }
         XCTAssertEqual(data, pngData)
         XCTAssertEqual(typeIdentifier, NSPasteboard.PasteboardType.png.rawValue)
+        XCTAssertNil(archive, "Image history stores only the selected original representation")
     }
 
     func testMonitorKeepsPrimaryScreenshotWhenAuxiliaryRepresentationsAreTooLarge() throws {
