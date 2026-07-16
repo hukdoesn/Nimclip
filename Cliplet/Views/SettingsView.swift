@@ -36,7 +36,7 @@ struct SettingsView: View {
                     VStack(spacing: 0) {
                         pageHeader(
                             title: "通用",
-                            subtitle: "外观、快捷键、历史记录与粘贴行为"
+                            subtitle: "外观、快捷键、历史记录、图片文字识别与粘贴行为"
                         )
                         Divider()
 
@@ -46,6 +46,9 @@ struct SettingsView: View {
                                 appearanceSection
                                 shortcutSection
                                 historySection
+                                NimclipImageTextSettingsSection(
+                                    viewModel: viewModel
+                                )
                                 generalSection
                                 pasteSection
                             }
@@ -278,6 +281,69 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+struct NimclipImageTextSettingsSection: View {
+    @Bindable var viewModel: ClipletViewModel
+
+    var body: some View {
+        ClipletSettingsSection(title: "图片文字识别") {
+            ClipletSettingsRow("自动识别新复制的图片", systemImage: "text.viewfinder") {
+                Toggle(
+                    "自动识别新复制的图片",
+                    isOn: $viewModel.automaticImageTextRecognition
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            }
+
+            ClipletSettingsDivider()
+
+            ClipletSettingsRow("补建历史图片索引", systemImage: "photo.stack") {
+                HStack(spacing: 8) {
+                    if viewModel.isIndexingImageText {
+                        ProgressView(
+                            value: Double(viewModel.imageTextIndexCompletedCount),
+                            total: Double(max(viewModel.imageTextIndexTotalCount, 1))
+                        )
+                        .progressViewStyle(.linear)
+                        .frame(width: 58)
+
+                        Text(
+                            "\(viewModel.imageTextIndexCompletedCount)/\(viewModel.imageTextIndexTotalCount)"
+                        )
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(.secondary)
+
+                        Button("停止", action: viewModel.cancelImageTextIndexing)
+                    } else {
+                        Text(
+                            viewModel.localizedFormat(
+                                "%d 张历史图片待识别",
+                                viewModel.unindexedImageCount
+                            )
+                        )
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+
+                        Button("开始补建", action: viewModel.indexExistingImageText)
+                            .disabled(viewModel.unindexedImageCount == 0)
+                    }
+                }
+            }
+
+            ClipletSettingsDivider()
+
+            Label(
+                "自动识别处理之后新复制的图片；历史图片只需手动补建一次。全程使用 macOS 系统 OCR，本地串行处理。",
+                systemImage: "lock"
+            )
+            .font(.system(size: 10.5))
+            .foregroundStyle(.secondary)
+            .padding(.vertical, 10)
         }
     }
 }

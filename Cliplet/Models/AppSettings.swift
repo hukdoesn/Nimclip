@@ -16,8 +16,14 @@ final class AppSettings {
     var appearanceModeRawValue: String = "dark"
     var hasExplicitAppearanceSelection: Bool = false
     var languageRawValue: String = NimclipLanguage.defaultLanguage.rawValue
+    var automaticImageTextRecognitionValue: Bool?
     var createdAt: Date
     var updatedAt: Date
+
+    var automaticImageTextRecognition: Bool {
+        get { automaticImageTextRecognitionValue ?? true }
+        set { automaticImageTextRecognitionValue = newValue }
+    }
 
     init(
         id: UUID = UUID(),
@@ -29,6 +35,7 @@ final class AppSettings {
         appearanceMode: NimclipAppearanceMode = .defaultMode,
         hasExplicitAppearanceSelection: Bool = false,
         language: NimclipLanguage = .defaultLanguage,
+        automaticImageTextRecognition: Bool = true,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -41,6 +48,7 @@ final class AppSettings {
         self.appearanceModeRawValue = appearanceMode.rawValue
         self.hasExplicitAppearanceSelection = hasExplicitAppearanceSelection
         self.languageRawValue = language.rawValue
+        self.automaticImageTextRecognitionValue = automaticImageTextRecognition
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

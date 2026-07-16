@@ -303,11 +303,18 @@ struct MenuBarRootView: View {
                     .padding(.vertical, 5)
                 }
                 .scrollIndicators(.automatic)
+                .id(viewModel.listPresentationGeneration)
                 .onChange(of: viewModel.selectedItemID) { _, itemID in
                     guard let itemID else { return }
                     withAnimation(.easeOut(duration: 0.12)) {
                         proxy.scrollTo(itemID, anchor: .center)
                     }
+                }
+                .onChange(of: viewModel.listPresentationGeneration) { _, _ in
+                    guard let firstItemID = viewModel.items.first?.id else {
+                        return
+                    }
+                    proxy.scrollTo(firstItemID, anchor: .top)
                 }
             }
         }

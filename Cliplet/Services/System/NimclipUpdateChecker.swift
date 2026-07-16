@@ -11,6 +11,11 @@ struct NimclipAvailableUpdate: Equatable, Sendable {
     let releaseURL: URL
 }
 
+enum NimclipAutomaticUpdateSchedule {
+    static let initialDelay: Duration = .seconds(4)
+    static let checkInterval: Duration = .seconds(10 * 60)
+}
+
 enum NimclipUpdateCheckError: LocalizedError {
     case invalidResponse
     case requestFailed(statusCode: Int)

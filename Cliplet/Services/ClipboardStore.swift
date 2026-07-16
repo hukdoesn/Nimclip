@@ -50,6 +50,7 @@ enum ClipboardStoreError: LocalizedError {
 final class ClipboardStore: ObservableObject {
     static let maximumImageBytes = 128 * 1_048_576
     static let maximumFormattedContentBytes = 12 * 1_048_576
+    static let maximumRecognizedTextCharacters = 20_000
     static let minimumHistoryLimit = 100
     static let maximumHistoryLimit = 5_000
     static let minimumRetentionDays = 1
@@ -295,6 +296,7 @@ final class ClipboardStore: ObservableObject {
             guard !query.isEmpty else { return true }
 
             return item.text?.localizedCaseInsensitiveContains(query) == true
+                || item.imageRecognizedText?.localizedCaseInsensitiveContains(query) == true
                 || item.sourceAppName?.localizedCaseInsensitiveContains(query) == true
                 || item.tags.contains(where: {
                     $0.name.localizedCaseInsensitiveContains(query)
@@ -320,6 +322,25 @@ final class ClipboardStore: ObservableObject {
     func pasteboardArchive(for item: ClipboardItem) -> ClipboardPasteboardArchive? {
         guard let data = item.pasteboardArchiveData else { return nil }
         return ClipboardPasteboardArchive.decode(data)
+    }
+
+    var unindexedImageItems: [ClipboardItem] {
+        items.filter {
+            $0.kind == .image
+                && $0.imageTextIndexedAt == nil
+                && $0.imageRelativePath != nil
+        }
+    }
+
+    func saveRecognizedImageText(_ text: String, for itemID: UUID) throws {
+        guard let item = items.first(where: { $0.id == itemID }),
+              item.kind == .image else {
+            return
+        }
+
+        item.imageRecognizedText = String(text.prefix(Self.maximumRecognizedTextCharacters))
+        item.imageTextIndexedAt = now()
+        try saveAndRefresh()
     }
 
     func toggleFavorite(_ item: ClipboardItem) throws {
@@ -406,7 +427,8 @@ final class ClipboardStore: ObservableObject {
         hotKeyModifiers: UInt32? = nil,
         launchAtLogin: Bool? = nil,
         appearanceMode: NimclipAppearanceMode? = nil,
-        language: NimclipLanguage? = nil
+        language: NimclipLanguage? = nil,
+        automaticImageTextRecognition: Bool? = nil
     ) throws {
         let shouldEnforceRetention = historyLimit != nil || retentionDays != nil
 
@@ -437,6 +459,9 @@ final class ClipboardStore: ObservableObject {
         }
         if let language {
             settings.languageRawValue = language.rawValue
+        }
+        if let automaticImageTextRecognition {
+            settings.automaticImageTextRecognition = automaticImageTextRecognition
         }
         try saveSettings(enforcingRetention: shouldEnforceRetention)
     }
@@ -523,6 +548,8 @@ final class ClipboardStore: ObservableObject {
             imageRelativePath: imageRelativePath,
             thumbnailRelativePath: thumbnailRelativePath,
             imageTypeIdentifier: imageTypeIdentifier,
+            imageRecognizedText: nil,
+            imageTextIndexedAt: nil,
             pasteboardArchiveData: pasteboardArchiveData,
             contentHash: contentHash,
             sourceAppBundleIdentifier: sourceAppBundleIdentifier,

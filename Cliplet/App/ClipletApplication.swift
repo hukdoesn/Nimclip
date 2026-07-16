@@ -333,12 +333,16 @@ final class ClipletAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private func scheduleAutomaticUpdateChecks() {
         automaticUpdateTask?.cancel()
         automaticUpdateTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(4))
+            try? await Task.sleep(
+                for: NimclipAutomaticUpdateSchedule.initialDelay
+            )
             guard !Task.isCancelled else { return }
 
             while !Task.isCancelled {
                 await self?.checkForUpdates(manual: false)
-                try? await Task.sleep(for: .seconds(6 * 60 * 60))
+                try? await Task.sleep(
+                    for: NimclipAutomaticUpdateSchedule.checkInterval
+                )
             }
         }
     }

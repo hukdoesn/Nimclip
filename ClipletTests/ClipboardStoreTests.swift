@@ -18,6 +18,7 @@ final class ClipboardStoreTests: XCTestCase {
             NimclipAppearanceMode.dark.rawValue
         )
         XCTAssertFalse(fixture.store.settings.hasExplicitAppearanceSelection)
+        XCTAssertTrue(fixture.store.settings.automaticImageTextRecognition)
 
         let original = try fixture.store.ingestText(
             "Nimclip",
@@ -267,6 +268,59 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: thumbnailURL.path))
     }
 
+    func testRecognizedImageTextPersistsAndCanBeSearchedAfterReopening() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ClipletImageTextTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeURL = directory.appendingPathComponent("image-text.store")
+        let imageData = try XCTUnwrap(
+            Data(
+                base64Encoded:
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            )
+        )
+        let itemID: UUID
+
+        do {
+            let store = try makeDiskStore(storeURL: storeURL, directory: directory)
+            let item = try store.ingestImage(
+                imageData,
+                typeIdentifier: UTType.png.identifier
+            )
+            itemID = item.id
+            try store.saveRecognizedImageText(
+                "发票号码 INV-2026-0716",
+                for: item.id
+            )
+        }
+
+        let reopenedStore = try makeDiskStore(
+            storeURL: storeURL,
+            directory: directory
+        )
+        let restoredItem = try XCTUnwrap(
+            reopenedStore.items.first { $0.id == itemID }
+        )
+
+        XCTAssertEqual(restoredItem.imageRecognizedText, "发票号码 INV-2026-0716")
+        XCTAssertNotNil(restoredItem.imageTextIndexedAt)
+        XCTAssertEqual(
+            reopenedStore.filteredItems(searchText: "INV-2026").map(\.id),
+            [itemID]
+        )
+        XCTAssertFalse(
+            reopenedStore.unindexedImageItems.contains { $0.id == itemID }
+        )
+    }
+
     func testOversizedImageIsRejectedBeforeDecoding() throws {
         let fixture = try makeStore()
         defer { fixture.cleanup() }
@@ -288,7 +342,8 @@ final class ClipboardStoreTests: XCTestCase {
             historyLimit: 123,
             retentionDays: 42,
             appearanceMode: .light,
-            language: .english
+            language: .english,
+            automaticImageTextRecognition: false
         )
         XCTAssertEqual(fixture.store.settings.historyLimit, 123)
         XCTAssertEqual(fixture.store.settings.retentionDays, 42)
@@ -301,6 +356,7 @@ final class ClipboardStoreTests: XCTestCase {
             fixture.store.settings.languageRawValue,
             NimclipLanguage.english.rawValue
         )
+        XCTAssertFalse(fixture.store.settings.automaticImageTextRecognition)
 
         try fixture.store.updateSettings(historyLimit: 1, retentionDays: 999)
         XCTAssertEqual(fixture.store.settings.historyLimit, ClipboardStore.minimumHistoryLimit)
@@ -350,6 +406,28 @@ final class ClipboardStoreTests: XCTestCase {
             reopenedStore.settings.languageRawValue,
             NimclipLanguage.english.rawValue
         )
+    }
+
+    func testAutomaticImageTextRecognitionSettingPersistsWhenStoreIsReopened() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ClipletImageTextSettingTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeURL = directory.appendingPathComponent("image-text-setting.store")
+        do {
+            let store = try makeDiskStore(storeURL: storeURL, directory: directory)
+            try store.updateSettings(automaticImageTextRecognition: false)
+        }
+
+        let reopenedStore = try makeDiskStore(storeURL: storeURL, directory: directory)
+        XCTAssertFalse(reopenedStore.settings.automaticImageTextRecognition)
     }
 
     func testUntouchedLegacyDefaultMigratesWithoutOverwritingAUserChoice() throws {

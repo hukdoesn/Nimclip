@@ -60,12 +60,63 @@ jobs:
       contents: write
 
     steps:
+      - name: 检出发布历史
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
       - name: 下载全部安装包
         uses: actions/download-artifact@v4
         with:
           pattern: Nimclip-macOS-*
           path: dist
           merge-multiple: true
+
+      - name: 生成本次更新说明
+        env:
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          PREVIOUS_TAG="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            COMMIT_RANGE="$PREVIOUS_TAG..$TAG"
+          else
+            COMMIT_RANGE="$TAG"
+          fi
+
+          {
+            echo "## 本次更新"
+            echo
+
+            if git log "$COMMIT_RANGE" --no-merges --format='%H%x09%s' |
+              grep -q .; then
+              while IFS=$'\t' read -r SHA SUBJECT; do
+                SHORT_SHA="${SHA:0:7}"
+                printf -- '- %s ([`%s`](https://github.com/%s/commit/%s))\n' \
+                  "$SUBJECT" "$SHORT_SHA" "$GH_REPO" "$SHA"
+              done < <(
+                git log "$COMMIT_RANGE" --no-merges --format='%H%x09%s'
+              )
+            else
+              echo "- 发布 $TAG"
+            fi
+
+            echo
+            echo "## 安装包"
+            echo
+            echo "- Apple Silicon：\`Nimclip-macOS-arm64.zip\`"
+            echo "- Intel：\`Nimclip-macOS-x86_64.zip\`"
+            echo "- 每个安装包均附带对应的 SHA-256 校验文件"
+
+            if [ -n "$PREVIOUS_TAG" ]; then
+              echo
+              echo "**完整变更记录**：https://github.com/$GH_REPO/compare/$PREVIOUS_TAG...$TAG"
+            fi
+          } > release-notes.md
+
+          cat release-notes.md
 
       - name: 创建或更新 GitHub Release
         env:
@@ -74,7 +125,14 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --repo "$GH_REPO" \
+              --title "Nimclip $TAG" \
+              --notes-file release-notes.md
             gh release upload "$TAG" dist/* --repo "$GH_REPO" --clobber
           else
-            gh release create "$TAG" dist/* --repo "$GH_REPO" --title "Nimclip $TAG" --generate-notes
+            gh release create "$TAG" dist/* \
+              --repo "$GH_REPO" \
+              --title "Nimclip $TAG" \
+              --notes-file release-notes.md
           fi

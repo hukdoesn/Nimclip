@@ -129,6 +129,7 @@
 /* Settings */
 "通用" = "General";
 "外观、快捷键、历史记录与粘贴行为" = "Appearance, shortcuts, history, and paste behavior";
+"外观、快捷键、历史记录、图片文字识别与粘贴行为" = "Appearance, shortcuts, history, image text recognition, and paste behavior";
 "清空全部历史记录？" = "Clear all clipboard history?";
 "清空历史" = "Clear History";
 "收藏内容会保留。" = "Favorite clips will be kept.";
@@ -154,6 +155,22 @@
 "双击输入精确数值" = "Double-click to enter an exact value";
 "数值" = "Value";
 "%@数值" = "%@ value";
+
+/* Image text recognition */
+"图片文字识别" = "Image Text Recognition";
+"自动识别新复制的图片" = "Recognize Newly Copied Images";
+"补建历史图片索引" = "Index Existing History Images";
+"%d 张历史图片待识别" = "%d history images pending";
+"开始补建" = "Index Now";
+"自动识别处理之后新复制的图片；历史图片只需手动补建一次。全程使用 macOS 系统 OCR，本地串行处理。" = "Automatic recognition handles newly copied images. Existing history images only need one manual indexing pass. All OCR runs locally and serially with macOS system frameworks.";
+"停止" = "Stop";
+"仅使用 macOS 系统 OCR，本地串行处理，识别完成后不持续占用 CPU。" = "Uses only macOS system OCR, processes images serially on-device, and stops using CPU when finished.";
+"已开启自动识别图片文字" = "Automatic image text recognition enabled";
+"已关闭自动识别图片文字" = "Automatic image text recognition disabled";
+"所有图片都已建立文字索引" = "All images already have a text index";
+"图片文字索引已完成" = "Image text indexing completed";
+"图片文字索引完成，%d 张识别失败" = "Image text indexing completed; %d images failed";
+"已停止图片文字识别" = "Image text recognition stopped";
 
 /* Keyboard shortcut */
 "请按下组合键" = "Press a shortcut";

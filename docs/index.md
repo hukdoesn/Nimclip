@@ -98,19 +98,21 @@ image: https://hukdoesn.github.io/Nimclip/images/nimclip-macbook-themes.png
 ## 功能 / Features
 
 - 文字、链接、代码、图片和富文本历史
-- 搜索、类型筛选、收藏和标签
+- 搜索、类型筛选、收藏和标签；图片可通过识别出的文字搜索
 - 来源应用名称与图标
 - 纯文本粘贴和多条内容合并
 - 自定义保留数量、保留时间、快捷键和外观
 - 所有剪贴板数据只保存在当前 Mac，不需要账号，不上传云端
+- 图片文字识别使用 macOS 系统 OCR，在本机低优先级串行执行
 
 ---
 
 - History for text, links, code, images, and rich text
-- Search, filters, favorites, tags, and source application details
+- Search, filters, favorites, tags, source application details, and images by recognized text
 - Plain-text paste and multi-item merging
 - Configurable retention, global shortcut, and appearance
 - All clipboard data stays on your Mac—no account and no cloud upload
+- Image text recognition uses macOS system OCR in a low-priority on-device serial queue
 
 ## 界面预览 / Interface Preview
 
@@ -127,9 +129,9 @@ Copied images remain easy to identify with thumbnails and a full-size preview.
 
 ### 个性化设置 / Personalization
 
-快捷键、保留规则、粘贴行为和外观均可按自己的工作流调整。
+快捷键、保留规则、图片文字识别、粘贴行为和外观均可按自己的工作流调整。
 
-Customize shortcuts, retention, paste behavior, and appearance for your workflow.
+Customize shortcuts, retention, on-device image text recognition, paste behavior, and appearance for your workflow.
 
 <figure class="nimclip-shot">
   <img src="./images/nimclip-settings-themes.png" alt="Nimclip settings in light and dark themes" loading="lazy">
@@ -137,6 +139,10 @@ Customize shortcuts, retention, paste behavior, and appearance for your workflow
 </figure>
 
 ### 原生体验 / Native Experience
+
+Nimclip 启动后会检查更新，并在运行期间每 10 分钟自动检查一次；同一版本不会频繁提醒。
+
+Nimclip checks after launch and every 10 minutes while running, without repeatedly reminding you about the same version.
 
 <div class="nimclip-gallery">
   <figure class="nimclip-shot">

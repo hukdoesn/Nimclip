@@ -9,6 +9,8 @@ final class ClipboardItem {
     var imageRelativePath: String?
     var thumbnailRelativePath: String?
     var imageTypeIdentifier: String?
+    var imageRecognizedText: String?
+    var imageTextIndexedAt: Date?
     @Attribute(.externalStorage) var pasteboardArchiveData: Data?
     @Attribute(.unique) var contentHash: String
     var sourceAppBundleIdentifier: String?
@@ -36,6 +38,8 @@ final class ClipboardItem {
         imageRelativePath: String? = nil,
         thumbnailRelativePath: String? = nil,
         imageTypeIdentifier: String? = nil,
+        imageRecognizedText: String? = nil,
+        imageTextIndexedAt: Date? = nil,
         pasteboardArchiveData: Data? = nil,
         contentHash: String,
         sourceAppBundleIdentifier: String? = nil,
@@ -51,6 +55,8 @@ final class ClipboardItem {
         self.imageRelativePath = imageRelativePath
         self.thumbnailRelativePath = thumbnailRelativePath
         self.imageTypeIdentifier = imageTypeIdentifier
+        self.imageRecognizedText = imageRecognizedText
+        self.imageTextIndexedAt = imageTextIndexedAt
         self.pasteboardArchiveData = pasteboardArchiveData
         self.contentHash = contentHash
         self.sourceAppBundleIdentifier = sourceAppBundleIdentifier

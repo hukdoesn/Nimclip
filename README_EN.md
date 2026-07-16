@@ -17,19 +17,39 @@
 
 ## What is Nimclip?
 
-Nimclip is a free and open-source, native, local-first clipboard history manager that lives in the macOS menu bar. Press <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> to find and paste something you copied earlier.
+Nimclip is a free, open-source, native, local-first clipboard history manager for macOS. It is built with Swift, SwiftUI, and SwiftData and lives in the menu bar. Press <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> to find, organize, and paste something you copied earlier.
 
 ## Features
 
-- History for text, links, code, images, and rich text
-- Search, type filters, favorites, and tags
-- Source application names and icons
-- Image thumbnails and full previews
-- Plain-text paste and multi-item merging
-- Configurable history limits and retention periods
+- History for text, links, code, images, and rich text, including source app names and icons
+- Automatic classification of links and common code, with filters for all content, text, links, code, and images
+- Search across text, recognized image text, source app names, and tags
+- Favorites plus create, rename, delete, color-code, and filter by tags
+- Preservation of rich-text formatting and images, with optional plain-text copy and paste
+- Ordered multi-item text collection for a single copy or paste
+- Image thumbnails, full image previews, and scrollable long-text previews
+- Repeated copies refresh the existing item and move it to the top instead of creating duplicates
+- Customizable global shortcut, history limit, retention period, and launch at login
+- Pause and resume clipboard recording
 - Independent light and dark appearances
-- Instant in-app language switching between Simplified Chinese and English
-- Customizable global shortcut and launch at login
+- Instant in-app switching between Simplified Chinese and English
+- Automatic GitHub Releases update checks after launch and while the app is running
+
+## Quick start
+
+| Action | How |
+| --- | --- |
+| Open history | Click the menu bar icon or press <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> |
+| Search | Start typing after opening; the search field is focused automatically |
+| Select an item | Use <kbd>↑</kbd>/<kbd>↓</kbd> to move through the results |
+| Paste | Click an item, or select it and press <kbd>Return</kbd> |
+| Preview | Hover over an item and hold <kbd>⌥ Option</kbd> |
+| More actions | Right-click an item to copy, paste as plain text, favorite, tag, open a link, or delete |
+| Delete an item | Select it and press <kbd>Delete</kbd>, or use the context menu |
+| Combine items | Enter multi-item mode, select text items in order, then copy or paste |
+| Close the panel | Press <kbd>Esc</kbd> or click outside the panel |
+
+Every time the panel opens, Nimclip selects the first item in the current search and filter results and scrolls the list to the top, keeping the newest available content ready to use.
 
 ## Interface
 
@@ -41,17 +61,39 @@ Images appear as thumbnails in clipboard history and can be opened in a full pre
   <img src="./docs/images/nimclip-image-preview-real.png" width="780" alt="Nimclip image preview">
 </p>
 
+### Image text recognition
+
+Image text recognition is enabled by default. Once enabled, newly copied images are indexed automatically with macOS Vision OCR, allowing you to find an image by searching for text inside it. Automatic recognition does not retroactively process images saved before the feature was installed, preventing a surprise burst of CPU work after an upgrade. Those existing images need only one manual indexing pass.
+
+- Automatically detects languages, with Simplified Chinese and English configured as primary recognition languages
+- Can be disabled under Settings → Image Text Recognition
+- Existing history images can be indexed once in a batch, with progress and cancellation controls
+- OCR only creates a search index and does not modify the stored original image
+- Recognition runs locally in a low-priority serial queue, uploads nothing, and stops using CPU when finished
+
 ### Settings
 
-Configure the app language, appearance, global shortcut, history limit, retention period, and launch-at-login behavior.
+Configure the app language, appearance, global shortcut, history limit, retention period, image text recognition, launch at login, and direct-paste permission.
 
 <p align="center">
   <img src="./docs/images/nimclip-settings-themes.png" width="1120" alt="Nimclip settings in light and dark themes">
 </p>
 
+Defaults:
+
+| Setting | Default | Range |
+| --- | --- | --- |
+| Global shortcut | <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> | Record a different shortcut in the app |
+| History limit | 500 items | 100–5000 items |
+| Retention period | 7 days | 1–365 days |
+| Image text recognition | Enabled | Can be disabled; existing images can be indexed manually |
+| Launch at login | Disabled | Can be enabled in Settings |
+
 ### Update notifications
 
-Nimclip can notify you when a new version is available. Updating the app does not remove clipboard history stored on your Mac.
+Nimclip checks GitHub Releases about four seconds after launch and then every 10 minutes while running. Only a newer stable release is offered, and failed automatic checks do not interrupt your work. You can also check manually from the About page.
+
+When an update is available, Nimclip can open its Release page. Automatic reminders for the same version are separated by at least 24 hours. Replacing the app with a newer version does not remove clipboard history stored on your Mac.
 
 <p align="center">
   <img src="./docs/images/nimclip-update-notification.png" width="1120" alt="Nimclip update notification">
@@ -68,10 +110,14 @@ Nimclip persists clipboard history locally with SwiftData and SQLite. Your histo
 - Clipboard contents stay on your Mac
 - No account is required
 - Clipboard contents are never uploaded
+- Image text recognition uses macOS Vision OCR; its working image is scaled to at most 2560 pixels on the longest side without changing the original
 - The default retention policy is 500 items for 7 days
 - Favorites are never removed automatically
+- Clear History preserves favorites; deleting an individual item also removes its local image files
 - History and settings: `~/Library/Application Support/Cliplet.store`
 - Images: `~/Library/Application Support/Cliplet/ClipboardImages/`
+
+Automatic update checks request only public release metadata from GitHub and never include clipboard contents.
 
 ## Support
 
@@ -101,6 +147,8 @@ Download the appropriate archive from [GitHub Releases](https://github.com/hukdo
 
 Nimclip requires macOS 15.0 or later. Direct paste requires macOS Accessibility permission. Without it, Nimclip can still copy the selected item so you can paste it manually.
 
+Both Apple Silicon and Intel archives are provided. The download badge at the top counts total asset downloads across GitHub Releases.
+
 ### First launch
 
 If macOS prevents Nimclip from opening:
@@ -116,6 +164,53 @@ If it is still blocked, verify that the archive came from the Nimclip repository
 xattr -dr com.apple.quarantine "/Applications/Nimclip.app"
 open "/Applications/Nimclip.app"
 ```
+
+### Direct-paste permission
+
+Nimclip writes the selected history item back to the system clipboard and then pastes it into the app you were previously using. To enable direct paste:
+
+1. Open Nimclip Settings → Direct Paste.
+2. Click **System Settings**.
+3. Allow Nimclip under Privacy & Security → Accessibility.
+
+Without Accessibility permission, history, search, copy, OCR, and previews still work. A paste action copies the item instead, after which you can press <kbd>⌘</kbd> <kbd>V</kbd> manually.
+
+## Build from source
+
+Requirements:
+
+- macOS 15.0 or later
+- Xcode 16 or later
+- Swift 6
+
+Open `Cliplet.xcodeproj` in Xcode, or run the following commands from the repository root:
+
+```bash
+xcodebuild build \
+  -project Cliplet.xcodeproj \
+  -scheme Cliplet \
+  -configuration Debug \
+  CODE_SIGNING_ALLOWED=NO
+
+xcodebuild test \
+  -project Cliplet.xcodeproj \
+  -scheme Cliplet \
+  -configuration Debug \
+  CODE_SIGNING_ALLOWED=NO
+```
+
+Create ad-hoc signed distributable archives:
+
+```bash
+./package.sh arm64
+./package.sh x86_64
+```
+
+Artifacts are written to `dist/`, together with a SHA-256 checksum for each ZIP. A self-built app without Apple Developer ID signing and notarization may still require the first-launch Gatekeeper steps above.
+
+## Community
+
+- [LINUX DO — A new kind of ideal community](https://linux.do/)
 
 ## License
 

@@ -3,6 +3,17 @@ import XCTest
 @testable import Cliplet
 
 final class NimclipUpdateCheckerTests: XCTestCase {
+    func testAutomaticUpdateScheduleChecksEveryTenMinutes() {
+        XCTAssertEqual(
+            NimclipAutomaticUpdateSchedule.initialDelay,
+            .seconds(4)
+        )
+        XCTAssertEqual(
+            NimclipAutomaticUpdateSchedule.checkInterval,
+            .seconds(10 * 60)
+        )
+    }
+
     func testVersionComparisonUsesSemanticVersionOrder() {
         XCTAssertTrue(NimclipUpdateChecker.isVersion("v1.1.0", newerThan: "1.0"))
         XCTAssertFalse(NimclipUpdateChecker.isVersion("1.0.0", newerThan: "1.0"))

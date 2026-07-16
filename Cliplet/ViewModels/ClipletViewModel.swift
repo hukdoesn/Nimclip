@@ -34,6 +34,11 @@ final class ClipletViewModel {
     private(set) var toastMessage: String?
     private(set) var isRecordingHotKey = false
     private(set) var hotKeyErrorMessage: String?
+    private(set) var isIndexingImageText = false
+    private(set) var imageTextIndexCompletedCount = 0
+    private(set) var imageTextIndexTotalCount = 0
+    private(set) var imageTextIndexFailureCount = 0
+    private(set) var listPresentationGeneration = 0
 
     var onShowRequested: (() -> Void)?
     var onDismissRequested: (() -> Void)?
@@ -46,9 +51,15 @@ final class ClipletViewModel {
     private let monitor: ClipboardMonitor
     private let pasteCoordinator: PasteCoordinator
     private let launchAtLoginManager: LaunchAtLoginManager
+    private let imageTextRecognizer: any ClipboardImageTextRecognizing
     private var hotKeyManager: GlobalHotKeyManager?
     private var hotKeyMonitor: Any?
     private var toastTask: Task<Void, Never>?
+    private var imageTextRecognitionTask: Task<Void, Never>?
+    private var queuedImageTextItemIDs: [UUID] = []
+    private var queuedImageTextItemIDSet: Set<UUID> = []
+    private var imageTextRecognitionGeneration = 0
+    private var shouldNotifyWhenImageTextIndexFinishes = false
     private var revision = 0 {
         didSet { rebuildVisibleItems() }
     }
@@ -58,12 +69,14 @@ final class ClipletViewModel {
         store: ClipboardStore,
         monitor: ClipboardMonitor = ClipboardMonitor(),
         pasteCoordinator: PasteCoordinator = PasteCoordinator(),
-        launchAtLoginManager: LaunchAtLoginManager = LaunchAtLoginManager()
+        launchAtLoginManager: LaunchAtLoginManager = LaunchAtLoginManager(),
+        imageTextRecognizer: any ClipboardImageTextRecognizing = ClipboardImageTextRecognizer()
     ) {
         self.store = store
         self.monitor = monitor
         self.pasteCoordinator = pasteCoordinator
         self.launchAtLoginManager = launchAtLoginManager
+        self.imageTextRecognizer = imageTextRecognizer
         rebuildVisibleItems()
 
         monitor.onCapture = { [weak self] capture in
@@ -138,6 +151,34 @@ final class ClipletViewModel {
                 revision += 1
             }
         }
+    }
+
+    var automaticImageTextRecognition: Bool {
+        get {
+            _ = revision
+            return store.settings.automaticImageTextRecognition
+        }
+        set {
+            guard newValue != automaticImageTextRecognition else { return }
+            do {
+                try store.updateSettings(automaticImageTextRecognition: newValue)
+                revision += 1
+                showToast(
+                    localized(
+                        newValue
+                            ? "已开启自动识别图片文字"
+                            : "已关闭自动识别图片文字"
+                    )
+                )
+            } catch {
+                showToast(localizedDescription(for: error))
+            }
+        }
+    }
+
+    var unindexedImageCount: Int {
+        _ = revision
+        return store.unindexedImageItems.count
     }
 
     var appearanceMode: NimclipAppearanceMode {
@@ -239,7 +280,8 @@ final class ClipletViewModel {
         timestampReferenceDate = Date()
         pasteCoordinator.rememberFrontmostApplication()
         rebuildVisibleItems()
-        ensureValidSelection()
+        selectedItemID = items.first?.id
+        listPresentationGeneration &+= 1
     }
 
     func presentationKind(for item: ClipboardItem) -> ClipboardPresentationKind {
@@ -270,6 +312,19 @@ final class ClipletViewModel {
 
     func openLoginItemsSettings() {
         launchAtLoginManager.openSystemSettings()
+    }
+
+    func indexExistingImageText() {
+        let itemIDs = store.unindexedImageItems.map(\.id)
+        guard !itemIDs.isEmpty else {
+            showToast(localized("所有图片都已建立文字索引"))
+            return
+        }
+        enqueueImageTextRecognition(for: itemIDs, notifyWhenFinished: true)
+    }
+
+    func cancelImageTextIndexing() {
+        cancelImageTextIndexing(showNotice: true)
     }
 
     func selectPrevious() {
@@ -497,6 +552,7 @@ final class ClipletViewModel {
     func shutdown() {
         monitor.stop()
         cancelHotKeyRecording()
+        cancelImageTextIndexing(showNotice: false)
     }
 
     private var selectedItem: ClipboardItem? {
@@ -520,13 +576,19 @@ final class ClipletViewModel {
                     sourceAppName: capture.sourceApplication.name
                 )
             case let .image(data, typeIdentifier, archive):
-                try store.ingestImage(
+                let item = try store.ingestImage(
                     data,
                     typeIdentifier: typeIdentifier,
                     archive: archive,
                     sourceAppBundleIdentifier: capture.sourceApplication.bundleIdentifier,
                     sourceAppName: capture.sourceApplication.name
                 )
+                if automaticImageTextRecognition, item.imageTextIndexedAt == nil {
+                    enqueueImageTextRecognition(
+                        for: [item.id],
+                        notifyWhenFinished: false
+                    )
+                }
             }
             revision += 1
             ensureValidSelection()
@@ -611,6 +673,127 @@ final class ClipletViewModel {
             visibleItems = filteredItems.filter {
                 selectedContentFilter.includes(presentationKind(for: $0))
             }
+        }
+    }
+
+    private func enqueueImageTextRecognition(
+        for itemIDs: [UUID],
+        notifyWhenFinished: Bool
+    ) {
+        shouldNotifyWhenImageTextIndexFinishes =
+            shouldNotifyWhenImageTextIndexFinishes || notifyWhenFinished
+
+        let newItemIDs = itemIDs.filter { itemID in
+            guard !queuedImageTextItemIDSet.contains(itemID),
+                  let item = store.items.first(where: { $0.id == itemID }),
+                  item.kind == .image,
+                  item.imageTextIndexedAt == nil else {
+                return false
+            }
+            return true
+        }
+        guard !newItemIDs.isEmpty else {
+            if imageTextRecognitionTask == nil {
+                shouldNotifyWhenImageTextIndexFinishes = false
+            }
+            return
+        }
+
+        queuedImageTextItemIDs.append(contentsOf: newItemIDs)
+        queuedImageTextItemIDSet.formUnion(newItemIDs)
+
+        if imageTextRecognitionTask == nil {
+            imageTextIndexCompletedCount = 0
+            imageTextIndexFailureCount = 0
+            imageTextIndexTotalCount = newItemIDs.count
+            isIndexingImageText = true
+            imageTextRecognitionGeneration += 1
+            let generation = imageTextRecognitionGeneration
+            imageTextRecognitionTask = Task { @MainActor [weak self] in
+                await self?.processImageTextRecognitionQueue(generation: generation)
+            }
+        } else {
+            imageTextIndexTotalCount += newItemIDs.count
+        }
+    }
+
+    private func processImageTextRecognitionQueue(generation: Int) async {
+        while generation == imageTextRecognitionGeneration,
+              !Task.isCancelled,
+              let itemID = queuedImageTextItemIDs.first {
+            queuedImageTextItemIDs.removeFirst()
+
+            guard let item = store.items.first(where: { $0.id == itemID }),
+                  item.kind == .image,
+                  item.imageTextIndexedAt == nil,
+                  let imageURL = store.imageURL(for: item) else {
+                queuedImageTextItemIDSet.remove(itemID)
+                imageTextIndexCompletedCount += 1
+                revision += 1
+                continue
+            }
+
+            do {
+                let recognizedText = try await imageTextRecognizer.recognizeText(
+                    at: imageURL
+                )
+                guard generation == imageTextRecognitionGeneration,
+                      !Task.isCancelled else {
+                    return
+                }
+                try store.saveRecognizedImageText(recognizedText, for: itemID)
+            } catch is CancellationError {
+                return
+            } catch {
+                imageTextIndexFailureCount += 1
+            }
+
+            queuedImageTextItemIDSet.remove(itemID)
+            imageTextIndexCompletedCount += 1
+            revision += 1
+        }
+
+        guard generation == imageTextRecognitionGeneration else { return }
+        let shouldNotify = shouldNotifyWhenImageTextIndexFinishes
+        let failureCount = imageTextIndexFailureCount
+
+        imageTextRecognitionTask = nil
+        isIndexingImageText = false
+        queuedImageTextItemIDs.removeAll()
+        queuedImageTextItemIDSet.removeAll()
+        shouldNotifyWhenImageTextIndexFinishes = false
+        revision += 1
+
+        if shouldNotify {
+            if failureCount == 0 {
+                showToast(localized("图片文字索引已完成"))
+            } else {
+                showToast(
+                    localizedFormat(
+                        "图片文字索引完成，%d 张识别失败",
+                        failureCount
+                    )
+                )
+            }
+        }
+    }
+
+    private func cancelImageTextIndexing(showNotice: Bool) {
+        guard imageTextRecognitionTask != nil || !queuedImageTextItemIDs.isEmpty else {
+            return
+        }
+
+        imageTextRecognitionGeneration += 1
+        imageTextRecognitionTask?.cancel()
+        imageTextRecognitionTask = nil
+        queuedImageTextItemIDs.removeAll()
+        queuedImageTextItemIDSet.removeAll()
+        isIndexingImageText = false
+        shouldNotifyWhenImageTextIndexFinishes = false
+        revision += 1
+
+        if showNotice {
+            showToast(localized("已停止图片文字识别"))
         }
     }
 

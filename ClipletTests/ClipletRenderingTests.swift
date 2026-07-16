@@ -140,6 +140,29 @@ final class ClipletRenderingTests: XCTestCase {
         }
     }
 
+    func testImageTextSettingsRenderWithEnglishLocalization() throws {
+        let fixture = try makeFixture()
+        defer {
+            fixture.viewModel.shutdown()
+            try? FileManager.default.removeItem(at: fixture.directory)
+        }
+
+        _ = try fixture.store.ingestImage(try previewImageData())
+        fixture.viewModel.language = .english
+        fixture.viewModel.dismissToast()
+
+        let settingsData = try render(
+            NimclipImageTextSettingsSection(viewModel: fixture.viewModel)
+                .environment(\.locale, fixture.viewModel.language.locale)
+                .padding(20)
+                .background(Color.clipletCanvas),
+            size: NSSize(width: 560, height: 230),
+            appearanceName: .aqua,
+            snapshotName: "settings-image-text-english"
+        )
+        XCTAssertGreaterThan(settingsData.count, 20_000)
+    }
+
     private func makeFixture() throws -> RenderingFixture {
         let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
         let configuration = ModelConfiguration(
