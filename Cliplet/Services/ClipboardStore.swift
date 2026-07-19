@@ -53,6 +53,7 @@ final class ClipboardStore: ObservableObject {
     static let maximumImageBytes = 128 * 1_048_576
     static let maximumFormattedContentBytes = 12 * 1_048_576
     static let maximumRecognizedTextCharacters = 20_000
+    static let maximumNoteCharacters = 1_000
     static let minimumHistoryLimit = 100
     static let maximumHistoryLimit = 5_000
     static let minimumRetentionDays = 1
@@ -112,10 +113,13 @@ final class ClipboardStore: ObservableObject {
             }
 
             if resolvedSettings.historyLimit == AppSettings.defaultHistoryLimit,
-               resolvedSettings.retentionDays == AppSettings.legacyDefaultRetentionDays,
+               AppSettings.earlierDefaultRetentionDays.contains(
+                   resolvedSettings.retentionDays
+               ),
                resolvedSettings.updatedAt.timeIntervalSince(resolvedSettings.createdAt).magnitude < 1 {
-                // Move untouched installs from the former 30-day default to the new default.
-                // A settings record that the user has edited keeps its chosen value.
+                // Move untouched installs from earlier defaults to the new
+                // default. A settings record that the user has edited keeps
+                // its chosen value.
                 resolvedSettings.retentionDays = AppSettings.defaultRetentionDays
                 shouldSaveSettings = true
             }
@@ -295,6 +299,7 @@ final class ClipboardStore: ObservableObject {
             guard !query.isEmpty else { return true }
 
             return item.text?.localizedCaseInsensitiveContains(query) == true
+                || item.note?.localizedCaseInsensitiveContains(query) == true
                 || item.imageRecognizedText?.localizedCaseInsensitiveContains(query) == true
                 || item.sourceAppName?.localizedCaseInsensitiveContains(query) == true
                 || item.tags.contains(where: {
@@ -358,15 +363,33 @@ final class ClipboardStore: ObservableObject {
         try saveAndRefresh()
     }
 
+    func setNote(_ note: String?, for item: ClipboardItem) throws {
+        let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.flatMap {
+            $0.isEmpty ? nil : String($0.prefix(Self.maximumNoteCharacters))
+        }
+        guard normalized != item.note else { return }
+
+        item.note = normalized
+        item.noteUpdatedAt = normalized == nil ? nil : now()
+        do {
+            // Notes are metadata. In particular, do not change updatedAt:
+            // editing a note must not reorder history or scroll the list.
+            try modelContext.save()
+            errorMessage = nil
+        } catch {
+            throw report(error)
+        }
+    }
+
     func delete(_ item: ClipboardItem) throws {
         removeFiles(for: item)
         modelContext.delete(item)
         try saveAndRefresh()
     }
 
-    func clearHistory(includingFavorites: Bool = false) throws {
-        let itemsToDelete = items.filter { includingFavorites || !$0.isFavorite }
-        for item in itemsToDelete {
+    func clearHistory() throws {
+        for item in itemsEligibleForHistoryCleanup {
             removeFiles(for: item)
             modelContext.delete(item)
         }
@@ -498,10 +521,11 @@ final class ClipboardStore: ObservableObject {
             to: currentDate
         ) ?? currentDate
 
-        let expired = items.filter { !$0.isFavorite && $0.updatedAt < cutoffDate }
+        let cleanupCandidates = itemsEligibleForHistoryCleanup
+        let expired = cleanupCandidates.filter { $0.updatedAt < cutoffDate }
         let expiredIDs = Set(expired.map(\.id))
-        let remainingNonFavorites = items
-            .filter { !$0.isFavorite && !expiredIDs.contains($0.id) }
+        let remainingNonFavorites = cleanupCandidates
+            .filter { !expiredIDs.contains($0.id) }
             .sorted { $0.updatedAt > $1.updatedAt }
         let overflowCount = max(0, remainingNonFavorites.count - settings.historyLimit)
         let overflow = overflowCount > 0
@@ -518,6 +542,13 @@ final class ClipboardStore: ObservableObject {
         }
 
         try saveAndRefresh()
+    }
+
+    /// Favorites are durable library entries, not disposable history.
+    /// Retention days, the history limit, and "Clear History" must all use
+    /// this same candidate set so none can accidentally remove a favorite.
+    private var itemsEligibleForHistoryCleanup: [ClipboardItem] {
+        items.filter { !$0.isFavorite }
     }
 
     private func ingest(

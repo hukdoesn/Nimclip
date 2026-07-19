@@ -4,8 +4,13 @@ import SwiftData
 @Model
 final class AppSettings {
     static let defaultHistoryLimit = 500
-    static let defaultRetentionDays = 7
+    static let defaultRetentionDays = 2
+    static let previousDefaultRetentionDays = 7
     static let legacyDefaultRetentionDays = 30
+    static let earlierDefaultRetentionDays = [
+        previousDefaultRetentionDays,
+        legacyDefaultRetentionDays
+    ]
 
     @Attribute(.unique) var id: UUID
     var historyLimit: Int

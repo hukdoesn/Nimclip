@@ -3,20 +3,28 @@ import SwiftUI
 
 struct MenuBarRootView: View {
     @Bindable var viewModel: ClipletViewModel
+    @Bindable var modifierKeyMonitor: ModifierKeyMonitor
     let onPreviewChange: (ClipboardItem?) -> Void
+    let onRowVisibilityChange: ((UUID, Bool) -> Void)?
 
     @FocusState private var isSearchFocused: Bool
     @State private var previewInteraction = ClipletPreviewInteractionState()
     @State private var isShowingTagManager = false
+    @State private var noteEditingItem: ClipboardItem?
     @State private var isCollectionMode = false
     @State private var collectedItemIDs: [UUID] = []
+    @State private var listScrollPositionID: UUID?
 
     init(
         viewModel: ClipletViewModel,
+        modifierKeyMonitor: ModifierKeyMonitor = ModifierKeyMonitor(),
+        onRowVisibilityChange: ((UUID, Bool) -> Void)? = nil,
         onPreviewChange: @escaping (ClipboardItem?) -> Void = { _ in }
     ) {
         self.viewModel = viewModel
+        self.modifierKeyMonitor = modifierKeyMonitor
         self.onPreviewChange = onPreviewChange
+        self.onRowVisibilityChange = onRowVisibilityChange
     }
 
     var body: some View {
@@ -50,15 +58,16 @@ struct MenuBarRootView: View {
         .onAppear {
             isSearchFocused = true
             updateOptionState(
-                ModifierKeyMonitor.isOptionPhysicallyPressed
+                modifierKeyMonitor.isOptionPressed
+                    || ModifierKeyMonitor.isOptionPressedNow
             )
         }
         .onDisappear {
             resetTransientInteractionState()
             exitCollectionMode()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
-            resetTransientInteractionState()
+        .onChange(of: modifierKeyMonitor.isOptionPressed) { _, isPressed in
+            updateOptionState(isPressed)
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -67,9 +76,7 @@ struct MenuBarRootView: View {
         ) { notification in
             guard let isPressed = notification.userInfo?[
                 ModifierKeyMonitor.isPressedUserInfoKey
-            ] as? Bool else {
-                return
-            }
+            ] as? Bool else { return }
             updateOptionState(isPressed)
         }
         .onKeyPress(.upArrow) {
@@ -101,6 +108,9 @@ struct MenuBarRootView: View {
         }
         .sheet(isPresented: $isShowingTagManager) {
             TagManagementView(viewModel: viewModel)
+        }
+        .sheet(item: $noteEditingItem) { item in
+            ClipboardNoteEditor(viewModel: viewModel, item: item)
         }
     }
 
@@ -281,56 +291,58 @@ struct MenuBarRootView: View {
             emptyState
         } else {
             ScrollViewReader { proxy in
-                List {
-                    ForEach(visibleItems) { item in
-                        ClipboardItemRow(
-                            item: item,
-                            tags: viewModel.tags,
-                            textPreview: viewModel.textPreview(for: item),
-                            thumbnailURL: viewModel.thumbnailURL(for: item),
-                            presentationKind: viewModel.presentationKind(for: item),
-                            referenceDate: viewModel.timestampReferenceDate,
-                            language: viewModel.language,
-                            isSelected: viewModel.selectedItemID == item.id,
-                            isCollectionMode: isCollectionMode,
-                            collectionIndex: collectionIndex(for: item.id),
-                            onHoverChange: { hovering in
-                                updateHoveredItem(item.id, isHovered: hovering)
-                            },
-                            onPaste: { viewModel.paste(item) },
-                            onPastePlainText: { viewModel.pasteAsPlainText(item) },
-                            onCopy: { viewModel.copy(item) },
-                            onCopyPlainText: { viewModel.copyAsPlainText(item) },
-                            onOpenLink: { viewModel.openLink(item) },
-                            onToggleCollection: { toggleCollectedItem(item) },
-                            onToggleFavorite: { viewModel.toggleFavorite(item) },
-                            onDelete: { viewModel.delete(item) },
-                            onToggleTag: { tag in viewModel.toggleTag(tag, on: item) }
-                        )
-                        .id(item.id)
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(visibleItems) { item in
+                            ClipboardItemRow(
+                                item: item,
+                                tags: viewModel.tags,
+                                textPreview: viewModel.textPreview(for: item),
+                                thumbnailURL: viewModel.thumbnailURL(for: item),
+                                presentationKind: viewModel.presentationKind(for: item),
+                                referenceDate: viewModel.timestampReferenceDate,
+                                language: viewModel.language,
+                                isSelected: viewModel.selectedItemID == item.id,
+                                isCollectionMode: isCollectionMode,
+                                collectionIndex: collectionIndex(for: item.id),
+                                onHoverChange: { hovering in
+                                    updateHoveredItem(item.id, isHovered: hovering)
+                                },
+                                onActivate: { performPrimaryAction(on: item) },
+                                onPaste: { viewModel.paste(item) },
+                                onPastePlainText: { viewModel.pasteAsPlainText(item) },
+                                onCopy: { viewModel.copy(item) },
+                                onCopyPlainText: { viewModel.copyAsPlainText(item) },
+                                onOpenLink: { viewModel.openLink(item) },
+                                onToggleCollection: { toggleCollectedItem(item) },
+                                onToggleFavorite: { viewModel.toggleFavorite(item) },
+                                onEditNote: { beginEditingNote(item) },
+                                onDelete: { viewModel.delete(item) },
+                                onToggleTag: { tag in viewModel.toggleTag(tag, on: item) }
+                            )
+                            .id(item.id)
+                            .onAppear {
+                                onRowVisibilityChange?(item.id, true)
+                            }
+                            .onDisappear {
+                                onRowVisibilityChange?(item.id, false)
+                            }
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
                 .scrollIndicators(.automatic)
                 .contentMargins(.vertical, 5, for: .scrollContent)
+                .scrollPosition(id: $listScrollPositionID, anchor: .top)
                 .onChange(of: viewModel.selectionScrollGeneration) { _, _ in
                     guard let itemID = viewModel.selectedItemID else { return }
                     proxy.scrollTo(itemID, anchor: .center)
                 }
-                .onChange(of: viewModel.listPresentationGeneration) { _, _ in
-                    guard let firstItemID = viewModel.items.first?.id else {
-                        return
-                    }
-                    proxy.scrollTo(firstItemID, anchor: .top)
-                }
                 /*
-                 Keeping the List alive is important for row reuse. Replacing
-                 its identity on every popover presentation reconstructs all
-                 500 rows and causes both a delayed open and choppy scrolling.
+                 Keeping the lazy scroll container alive is important for row
+                 reuse. Replacing its identity on every popover presentation
+                 reconstructs all 500 rows and makes opening and scrolling
+                 visibly choppy.
                  */
                 .transaction { transaction in
                     transaction.animation = nil
@@ -529,6 +541,11 @@ struct MenuBarRootView: View {
         }
     }
 
+    private func beginEditingNote(_ item: ClipboardItem) {
+        resetTransientInteractionState()
+        noteEditingItem = item
+    }
+
     private func collectionIndex(for itemID: UUID) -> Int? {
         guard let index = collectedItemIDs.firstIndex(of: itemID) else { return nil }
         return index + 1
@@ -540,9 +557,10 @@ struct MenuBarRootView: View {
 
             // Reading AppKit's current flags also covers holding Option before
             // the pointer enters the row.
-            if ModifierKeyMonitor.isOptionPhysicallyPressed {
-                previewInteraction.isOptionPressed = true
-                previewInteraction.previewItemID = itemID
+            if previewInteraction.beginPreview(
+                for: itemID,
+                optionIsPhysicallyPressed: ModifierKeyMonitor.isOptionPressedNow
+            ) {
                 notifyPreviewChange()
             }
         } else if previewInteraction.hoveredItemID == itemID {
@@ -555,15 +573,19 @@ struct MenuBarRootView: View {
     }
 
     private func updateOptionState(_ isPressed: Bool) {
-        guard isPressed != previewInteraction.isOptionPressed else { return }
-        previewInteraction.isOptionPressed = isPressed
-
-        if isPressed {
-            previewInteraction.previewItemID = previewInteraction.hoveredItemID
-        } else {
-            previewInteraction.previewItemID = nil
-        }
+        guard previewInteraction.updateOptionState(isPressed) else { return }
         notifyPreviewChange()
+    }
+
+    private func performPrimaryAction(on item: ClipboardItem) {
+        if previewInteraction.beginPreview(
+            for: item.id,
+            optionIsPhysicallyPressed: ModifierKeyMonitor.isOptionPressedNow
+        ) {
+            notifyPreviewChange()
+            return
+        }
+        viewModel.paste(item)
     }
 
     private func resetTransientInteractionState() {
@@ -584,10 +606,153 @@ struct MenuBarRootView: View {
     }
 }
 
-private final class ClipletPreviewInteractionState {
+private struct ClipboardNoteEditor: View {
+    @Bindable var viewModel: ClipletViewModel
+    let item: ClipboardItem
+
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var isEditorFocused: Bool
+    @State private var noteText: String
+
+    init(viewModel: ClipletViewModel, item: ClipboardItem) {
+        self.viewModel = viewModel
+        self.item = item
+        _noteText = State(initialValue: item.note ?? "")
+    }
+
+    private var hasSavedNote: Bool {
+        item.note?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty == false
+    }
+
+    private var normalizedDraft: String {
+        noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "note.text")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                Text(
+                    viewModel.localized(
+                        hasSavedNote ? "编辑备注" : "添加备注"
+                    )
+                )
+                .font(.system(size: 16, weight: .semibold))
+
+                Spacer()
+            }
+
+            Text(viewModel.localized("备注仅用于整理和搜索，不会改变复制或粘贴的原文。"))
+                .font(.system(size: 11.5))
+                .foregroundStyle(.secondary)
+
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $noteText)
+                    .font(.system(size: 13))
+                    .lineSpacing(3)
+                    .scrollContentBackground(.hidden)
+                    .focused($isEditorFocused)
+                    .padding(5)
+
+                if noteText.isEmpty {
+                    Text(viewModel.localized("输入备注…"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 13)
+                        .allowsHitTesting(false)
+                }
+            }
+            .frame(minHeight: 132)
+            .background(
+                Color(nsColor: .textBackgroundColor),
+                in: RoundedRectangle(cornerRadius: 7)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(Color.clipletBorder.opacity(0.75), lineWidth: 0.5)
+            }
+            .onChange(of: noteText) { _, value in
+                guard value.count > ClipboardStore.maximumNoteCharacters else {
+                    return
+                }
+                noteText = String(value.prefix(ClipboardStore.maximumNoteCharacters))
+            }
+
+            HStack(spacing: 8) {
+                Text(
+                    "\(noteText.count)/\(ClipboardStore.maximumNoteCharacters)"
+                )
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(.tertiary)
+
+                if hasSavedNote {
+                    Button(role: .destructive) {
+                        if viewModel.setNote(nil, for: item) {
+                            dismiss()
+                        }
+                    } label: {
+                        Text(viewModel.localized("删除备注"))
+                    }
+                }
+
+                Spacer()
+
+                Button(viewModel.localized("取消")) {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Button(viewModel.localized("保存")) {
+                    if viewModel.setNote(noteText, for: item) {
+                        dismiss()
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(!hasSavedNote && normalizedDraft.isEmpty)
+            }
+            .controlSize(.small)
+        }
+        .padding(18)
+        .frame(width: 420, height: 300)
+        .background(Color.clipletCanvas)
+        .onAppear {
+            isEditorFocused = true
+        }
+    }
+}
+
+final class ClipletPreviewInteractionState {
     var hoveredItemID: UUID?
     var previewItemID: UUID?
     var isOptionPressed = false
+
+    @discardableResult
+    func updateOptionState(_ isPressed: Bool) -> Bool {
+        guard isPressed != isOptionPressed else { return false }
+        isOptionPressed = isPressed
+        previewItemID = isPressed
+            ? hoveredItemID
+            : nil
+        return true
+    }
+
+    func beginPreview(
+        for itemID: UUID,
+        optionIsPhysicallyPressed: Bool
+    ) -> Bool {
+        guard isOptionPressed || optionIsPhysicallyPressed else { return false }
+        isOptionPressed = true
+        hoveredItemID = itemID
+        previewItemID = itemID
+        return true
+    }
 }
 
 private struct NimclipNavigationTab: View {

@@ -14,6 +14,7 @@ struct ClipboardItemRow: View {
     let isCollectionMode: Bool
     let collectionIndex: Int?
     let onHoverChange: (Bool) -> Void
+    let onActivate: () -> Void
     let onPaste: () -> Void
     let onPastePlainText: () -> Void
     let onCopy: () -> Void
@@ -21,6 +22,7 @@ struct ClipboardItemRow: View {
     let onOpenLink: () -> Void
     let onToggleCollection: () -> Void
     let onToggleFavorite: () -> Void
+    let onEditNote: () -> Void
     let onDelete: () -> Void
     let onToggleTag: (ClipTag) -> Void
 
@@ -81,6 +83,12 @@ struct ClipboardItemRow: View {
                         systemImage: presentationKind.systemImage
                     )
                         .labelStyle(.titleAndIcon)
+
+                    if item.note?.isEmpty == false {
+                        Image(systemName: "note.text")
+                            .help(language.localized("有备注"))
+                            .accessibilityLabel(language.localized("有备注"))
+                    }
 
                     if !tags.isEmpty, let firstTag = item.tags.first {
                         Circle()
@@ -171,7 +179,7 @@ struct ClipboardItemRow: View {
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(rowBorder, lineWidth: 0.75)
+                .stroke(rowBorder, lineWidth: 1)
         }
         .overlay(alignment: .leading) {
             if isSelected && !isCollected {
@@ -188,7 +196,7 @@ struct ClipboardItemRow: View {
             if isCollectionMode {
                 onToggleCollection()
             } else {
-                onPaste()
+                onActivate()
             }
         }
         .onHover { hovering in
@@ -197,9 +205,6 @@ struct ClipboardItemRow: View {
         }
         .task(id: item.sourceAppBundleIdentifier) {
             await loadSourceAppIcon()
-        }
-        .onDisappear {
-            sourceAppIcon = nil
         }
         .contextMenu { contextMenu }
         .accessibilityElement(children: .combine)
@@ -254,7 +259,7 @@ struct ClipboardItemRow: View {
             return Color.clipletSelection.opacity(colorScheme == .dark ? 0.18 : 0.10)
         }
         if isSelected {
-            return Color.primary.opacity(colorScheme == .dark ? 0.095 : 0.055)
+            return Color.primary.opacity(colorScheme == .dark ? 0.14 : 0.13)
         }
         if isHovered {
             return .clipletHover
@@ -264,6 +269,12 @@ struct ClipboardItemRow: View {
 
     private var rowBorder: Color {
         if isCollected { return Color.clipletSelection.opacity(0.54) }
+        if isSelected {
+            return Color.primary.opacity(colorScheme == .dark ? 0.18 : 0.20)
+        }
+        if isHovered {
+            return Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.18)
+        }
         return .clear
     }
 
@@ -303,6 +314,19 @@ struct ClipboardItemRow: View {
             )
         }
 
+        if item.kind == .text, item.isFavorite {
+            Button(action: onEditNote) {
+                Label(
+                    language.localized(
+                        item.note?.isEmpty == false ? "编辑备注…" : "添加备注…"
+                    ),
+                    systemImage: item.note?.isEmpty == false
+                        ? "square.and.pencil"
+                        : "note.text.badge.plus"
+                )
+            }
+        }
+
         if !tags.isEmpty {
             Menu {
                 ForEach(tags) { tag in
@@ -339,76 +363,59 @@ struct ClipboardItemRow: View {
               let bundleIdentifier = item.sourceAppBundleIdentifier else {
             return
         }
-        let cgImage = await ClipletSourceAppIconLoader.shared.icon(
+        let icon = ClipletSourceAppIconLoader.shared.icon(
             bundleIdentifier: bundleIdentifier
         )
-        guard !Task.isCancelled, let cgImage else { return }
-        sourceAppIcon = NSImage(cgImage: cgImage, size: .zero)
+        guard !Task.isCancelled else { return }
+        sourceAppIcon = icon
     }
 }
 
-private actor ClipletSourceAppIconLoader {
+@MainActor
+final class ClipletSourceAppIconLoader {
     static let shared = ClipletSourceAppIconLoader()
 
-    private static let iconPixelSize = 76
-    private let cache: NSCache<NSString, CGImage> = {
-        let cache = NSCache<NSString, CGImage>()
+    typealias ApplicationURLProvider = (String) -> URL?
+    typealias FileIconProvider = (String) -> NSImage
+
+    private let cache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
         cache.countLimit = 64
-        cache.totalCostLimit = 2 * 1_048_576
         return cache
     }()
-    private var unavailableBundleIdentifiers = Set<String>()
+    private let applicationURLProvider: ApplicationURLProvider
+    private let fileIconProvider: FileIconProvider
 
-    func icon(bundleIdentifier: String) async -> CGImage? {
+    init(
+        applicationURLProvider: @escaping ApplicationURLProvider = { bundleIdentifier in
+            NSRunningApplication.runningApplications(
+                withBundleIdentifier: bundleIdentifier
+            ).first(where: { !$0.isTerminated })?.bundleURL
+                ?? NSWorkspace.shared.urlForApplication(
+                    withBundleIdentifier: bundleIdentifier
+                )
+        },
+        fileIconProvider: @escaping FileIconProvider = {
+            NSWorkspace.shared.icon(forFile: $0)
+        }
+    ) {
+        self.applicationURLProvider = applicationURLProvider
+        self.fileIconProvider = fileIconProvider
+    }
+
+    func icon(bundleIdentifier: String) -> NSImage? {
         guard !bundleIdentifier.isEmpty, !Task.isCancelled else { return nil }
         let key = bundleIdentifier as NSString
         if let cached = cache.object(forKey: key) { return cached }
-        guard !unavailableBundleIdentifiers.contains(bundleIdentifier) else { return nil }
-        guard let applicationURL = await MainActor.run(body: {
-            NSWorkspace.shared.urlForApplication(
-                withBundleIdentifier: bundleIdentifier
-            )
-        }), !Task.isCancelled,
-        let iconURL = Self.iconURL(forApplicationAt: applicationURL),
-        let source = CGImageSourceCreateWithURL(
-            iconURL as CFURL,
-            [kCGImageSourceShouldCache: false] as CFDictionary
-        ),
-        let icon = CGImageSourceCreateThumbnailAtIndex(
-            source,
-            0,
-            [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: Self.iconPixelSize,
-                kCGImageSourceShouldCacheImmediately: true
-            ] as CFDictionary
-        ) else {
-            unavailableBundleIdentifiers.insert(bundleIdentifier)
-            return nil
-        }
-        guard !Task.isCancelled else { return nil }
-        cache.setObject(
-            icon,
-            forKey: key,
-            cost: icon.bytesPerRow * icon.height
-        )
-        return icon
-    }
+        guard let applicationURL = applicationURLProvider(bundleIdentifier),
+              !Task.isCancelled else { return nil }
 
-    private static func iconURL(forApplicationAt applicationURL: URL) -> URL? {
-        guard let bundle = Bundle(url: applicationURL),
-              var iconName = bundle.object(
-                  forInfoDictionaryKey: "CFBundleIconFile"
-              ) as? String,
-              !iconName.isEmpty,
-              let resourcesURL = bundle.resourceURL else {
-            return nil
-        }
-        if URL(fileURLWithPath: iconName).pathExtension.isEmpty {
-            iconName += ".icns"
-        }
-        return resourcesURL.appendingPathComponent(iconName)
+        let workspaceIcon = fileIconProvider(applicationURL.path)
+        let icon = (workspaceIcon.copy() as? NSImage) ?? workspaceIcon
+        icon.size = NSSize(width: 38, height: 38)
+        guard !Task.isCancelled else { return nil }
+        cache.setObject(icon, forKey: key)
+        return icon
     }
 }
 
@@ -574,6 +581,15 @@ struct ClipboardItemExpandedPreview: View {
         return text
     }
 
+    private var noteText: String? {
+        guard let note = item.note?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !note.isEmpty else {
+            return nil
+        }
+        return note
+    }
+
     private var presentationKind: ClipboardPresentationKind {
         item.presentationKind
     }
@@ -691,23 +707,79 @@ struct ClipboardItemExpandedPreview: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView {
-                Text(fullText)
-                    .font(
-                        .system(
-                            size: 13.5,
-                            design: presentationKind == .code ? .monospaced : .default
+                VStack(alignment: .leading, spacing: 14) {
+                    if let noteText {
+                        noteCard(noteText)
+                        originalContentHeader
+                    }
+
+                    Text(fullText)
+                        .font(
+                            .system(
+                                size: 13.5,
+                                design: presentationKind == .code ? .monospaced : .default
+                            )
                         )
-                    )
-                    .lineSpacing(presentationKind == .code ? 3 : 4)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 16)
+                        .lineSpacing(presentationKind == .code ? 3 : 4)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
             }
             .scrollIndicators(.automatic)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
         }
+    }
+
+    private func noteCard(_ note: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "note.text")
+                    .font(.system(size: 11, weight: .medium))
+
+                Text(language.localized("备注"))
+                    .font(.system(size: 11.5, weight: .medium))
+            }
+            .foregroundStyle(Color.secondary)
+
+            Text(note)
+                .font(.system(size: 13))
+                .foregroundStyle(Color.primary)
+                .lineSpacing(3)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Color(nsColor: .controlBackgroundColor),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(
+                    Color(nsColor: .separatorColor),
+                    lineWidth: 0.5
+                )
+        }
+    }
+
+    private var originalContentHeader: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "doc.text")
+                .font(.system(size: 10, weight: .semibold))
+
+            Text(language.localized("原始内容"))
+                .font(.system(size: 10.5, weight: .semibold))
+
+            Rectangle()
+                .fill(Color.clipletBorder.opacity(0.72))
+                .frame(height: 0.5)
+        }
+        .foregroundStyle(Color.secondary)
     }
 
     private var maximumPreviewPixelSize: Int {
@@ -737,11 +809,11 @@ struct ClipboardItemExpandedPreview: View {
         guard let bundleIdentifier = item.sourceAppBundleIdentifier else {
             return
         }
-        let cgImage = await ClipletSourceAppIconLoader.shared.icon(
+        let icon = ClipletSourceAppIconLoader.shared.icon(
             bundleIdentifier: bundleIdentifier
         )
-        guard !Task.isCancelled, let cgImage else { return }
-        sourceAppIcon = NSImage(cgImage: cgImage, size: .zero)
+        guard !Task.isCancelled else { return }
+        sourceAppIcon = icon
     }
 }
 

@@ -93,7 +93,7 @@ Defaults:
 | --- | --- | --- |
 | Global shortcut | <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> | Record a different shortcut in the app |
 | History limit | 500 items | 100–5000 items |
-| Retention period | 7 days | 1–365 days |
+| Retention period | 2 days | 1–365 days |
 | Image text recognition | Enabled | Can be disabled; existing images can be indexed manually |
 | Launch at login | Disabled | Can be enabled in Settings |
 
@@ -121,7 +121,7 @@ Nimclip persists clipboard history locally with SwiftData and SQLite. Your histo
 - No account is required
 - Clipboard contents are never uploaded
 - Image text recognition uses macOS Vision OCR; its working image is scaled to at most 2560 pixels on the longest side without changing the original
-- The default retention policy is 500 items for 7 days
+- The default retention policy is 500 items for 2 days
 - Favorites are never removed automatically
 - Clear History preserves favorites; deleting an individual item also removes its local image files
 - History and settings: `~/Library/Application Support/Cliplet.store`

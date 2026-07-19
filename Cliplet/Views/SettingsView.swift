@@ -81,7 +81,7 @@ struct SettingsView: View {
             Button("清空历史", role: .destructive, action: viewModel.clearHistory)
             Button("取消", role: .cancel) {}
         } message: {
-            Text("收藏内容会保留。")
+            Text("只会清空未收藏的记录，收藏内容会保留。")
         }
     }
 
@@ -249,7 +249,7 @@ struct SettingsView: View {
 
             ClipletSettingsDivider()
 
-            Text("达到数量上限后会自动删除最旧的未收藏记录；收藏不计入数量上限。")
+            Text("收藏内容不会被保留时间、数量上限或“清空历史”删除。")
                 .font(.system(size: 10.5))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

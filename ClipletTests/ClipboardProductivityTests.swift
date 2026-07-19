@@ -97,7 +97,48 @@ final class ClipboardProductivityTests: XCTestCase {
         XCTAssertEqual(viewModel.items.count, 4)
     }
 
-    func testPreparingToShowSelectsNewestItemAndRequestsTopScroll() throws {
+    func testSavingAndRemovingNoteImmediatelyRefreshesSearchResults() throws {
+        let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
+        let configuration = ModelConfiguration(
+            "ClipboardNoteSearchTests",
+            schema: schema,
+            isStoredInMemoryOnly: true
+        )
+        let container = try ModelContainer(for: schema, configurations: configuration)
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipboardNoteSearchTests-\(UUID().uuidString)")
+        let store = try ClipboardStore(
+            modelContainer: container,
+            imagesDirectory: directory
+        )
+        let item = try store.ingestText("原始剪贴板内容")
+        try store.setFavorite(true, for: item)
+
+        let pasteboard = NSPasteboard(
+            name: .init("ClipboardNoteSearchTests.source.\(UUID().uuidString)")
+        )
+        let monitor = ClipboardMonitor(
+            pasteboard: pasteboard,
+            pollingInterval: .seconds(3_600)
+        )
+        let viewModel = ClipletViewModel(store: store, monitor: monitor)
+        defer {
+            viewModel.shutdown()
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        viewModel.searchText = "发布路线图"
+        XCTAssertTrue(viewModel.items.isEmpty)
+
+        XCTAssertTrue(viewModel.setNote("下周检查发布路线图", for: item))
+        XCTAssertEqual(viewModel.items.map(\.id), [item.id])
+
+        XCTAssertTrue(viewModel.setNote(nil, for: item))
+        XCTAssertTrue(viewModel.items.isEmpty)
+        XCTAssertEqual(item.text, "原始剪贴板内容")
+    }
+
+    func testPreparingToShowPreservesSelectionWhenNewContentArrives() throws {
         var now = Date(timeIntervalSince1970: 1_000)
         let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
         let configuration = ModelConfiguration(
@@ -134,28 +175,99 @@ final class ClipboardProductivityTests: XCTestCase {
 
         viewModel.prepareToShow()
         XCTAssertEqual(viewModel.selectedItemID, viewModel.items.first?.id)
-        let firstPresentationGeneration = viewModel.listPresentationGeneration
 
         viewModel.selectNext()
         XCTAssertNotEqual(viewModel.selectedItemID, viewModel.items.first?.id)
+        let preservedSelection = viewModel.selectedItemID
 
         now.addTimeInterval(1)
         let newest = try store.ingestText("后来复制的新记录")
         viewModel.prepareToShow()
 
-        XCTAssertEqual(viewModel.selectedItemID, newest.id)
-        XCTAssertEqual(
-            viewModel.listPresentationGeneration,
-            firstPresentationGeneration + 1
-        )
+        XCTAssertEqual(viewModel.items.first?.id, newest.id)
+        XCTAssertEqual(viewModel.selectedItemID, preservedSelection)
 
         viewModel.prepareToShow()
-        XCTAssertEqual(viewModel.selectedItemID, newest.id)
-        XCTAssertEqual(
-            viewModel.listPresentationGeneration,
-            firstPresentationGeneration + 1,
-            "Reopening without new content must preserve the reusable list position"
+        XCTAssertEqual(viewModel.selectedItemID, preservedSelection)
+    }
+
+    func testPreparingForImmediateShowCapturesTheLatestPasteboardChange() throws {
+        let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
+        let configuration = ModelConfiguration(
+            "ClipboardImmediatePresentationTests",
+            schema: schema,
+            isStoredInMemoryOnly: true
         )
+        let container = try ModelContainer(for: schema, configurations: configuration)
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ClipboardImmediatePresentationTests-\(UUID().uuidString)"
+            )
+        let store = try ClipboardStore(
+            modelContainer: container,
+            imagesDirectory: directory
+        )
+        let pasteboard = NSPasteboard(
+            name: .init("ClipboardImmediatePresentationTests-\(UUID().uuidString)")
+        )
+        let monitor = ClipboardMonitor(
+            pasteboard: pasteboard,
+            pollingInterval: .seconds(3_600)
+        )
+        let viewModel = ClipletViewModel(store: store, monitor: monitor)
+        defer {
+            viewModel.shutdown()
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        pasteboard.clearContents()
+        XCTAssertTrue(
+            pasteboard.setString("刚刚复制的内容", forType: .string)
+        )
+
+        viewModel.prepareForImmediateShow()
+
+        XCTAssertEqual(viewModel.items.first?.text, "刚刚复制的内容")
+    }
+
+    func testImmediateShowRapidlyRetriesWhenThePasteboardCommitsLate() async throws {
+        let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
+        let configuration = ModelConfiguration(
+            "ClipboardLateCommitPresentationTests",
+            schema: schema,
+            isStoredInMemoryOnly: true
+        )
+        let container = try ModelContainer(for: schema, configurations: configuration)
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ClipboardLateCommitPresentationTests-\(UUID().uuidString)"
+            )
+        let store = try ClipboardStore(
+            modelContainer: container,
+            imagesDirectory: directory
+        )
+        let pasteboard = NSPasteboard(
+            name: .init("ClipboardLateCommitPresentationTests-\(UUID().uuidString)")
+        )
+        let monitor = ClipboardMonitor(
+            pasteboard: pasteboard,
+            pollingInterval: .seconds(3_600)
+        )
+        let viewModel = ClipletViewModel(store: store, monitor: monitor)
+        defer {
+            viewModel.shutdown()
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        viewModel.prepareForImmediateShow()
+        pasteboard.clearContents()
+        XCTAssertTrue(
+            pasteboard.setString("稍后才提交的复制内容", forType: .string)
+        )
+
+        try await waitUntil(timeout: 0.2) {
+            viewModel.items.first?.text == "稍后才提交的复制内容"
+        }
     }
 
     func testMultipleTextItemsCanBeCombinedInSelectionOrderAndCopied() throws {

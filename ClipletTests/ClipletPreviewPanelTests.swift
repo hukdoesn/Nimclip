@@ -4,6 +4,71 @@ import XCTest
 
 @MainActor
 final class ClipletPreviewPanelTests: XCTestCase {
+    func testHoldingOptionPreviewsOnlyAfterThePointerHoversAnItem() {
+        let hoveredItemID = UUID()
+        let interaction = ClipletPreviewInteractionState()
+
+        XCTAssertTrue(interaction.updateOptionState(true))
+        XCTAssertTrue(interaction.isOptionPressed)
+        XCTAssertNil(interaction.previewItemID)
+
+        XCTAssertTrue(
+            interaction.beginPreview(
+                for: hoveredItemID,
+                optionIsPhysicallyPressed: true
+            )
+        )
+        XCTAssertEqual(interaction.hoveredItemID, hoveredItemID)
+        XCTAssertEqual(interaction.previewItemID, hoveredItemID)
+
+        XCTAssertTrue(interaction.updateOptionState(false))
+        XCTAssertFalse(interaction.isOptionPressed)
+        XCTAssertNil(interaction.previewItemID)
+    }
+
+    func testMenuPopoverStaysWithItsOpeningDisplay() {
+        XCTAssertEqual(
+            ClipletAppDelegate.menuPopoverBehavior,
+            .applicationDefined
+        )
+        XCTAssertFalse(
+            ClipletAppDelegate.menuPopoverWindowCollectionBehavior.contains(
+                .canJoinAllSpaces
+            )
+        )
+        XCTAssertFalse(
+            ClipletAppDelegate.menuPopoverWindowCollectionBehavior.contains(
+                .moveToActiveSpace
+            )
+        )
+        XCTAssertTrue(
+            ClipletAppDelegate.menuPopoverWindowCollectionBehavior.contains(
+                .fullScreenAuxiliary
+            )
+        )
+    }
+
+    func testOptionPrimaryActionStartsPreviewInsteadOfPasting() {
+        let itemID = UUID()
+        let interaction = ClipletPreviewInteractionState()
+
+        XCTAssertFalse(
+            interaction.beginPreview(
+                for: itemID,
+                optionIsPhysicallyPressed: false
+            )
+        )
+        XCTAssertTrue(
+            interaction.beginPreview(
+                for: itemID,
+                optionIsPhysicallyPressed: true
+            )
+        )
+        XCTAssertEqual(interaction.hoveredItemID, itemID)
+        XCTAssertEqual(interaction.previewItemID, itemID)
+        XCTAssertTrue(interaction.isOptionPressed)
+    }
+
     func testPreviewPanelIsNonActivatingAndCanBeHidden() {
         let item = ClipboardItem(
             kind: .text,
@@ -27,7 +92,14 @@ final class ClipletPreviewPanelTests: XCTestCase {
         XCTAssertEqual(panel?.ignoresMouseEvents, false)
         XCTAssertEqual(panel?.acceptsMouseMovedEvents, true)
         XCTAssertEqual(panel?.styleMask.contains(.nonactivatingPanel), true)
+        XCTAssertEqual(panel?.hidesOnDeactivate, false)
         XCTAssertEqual(panel?.isVisible, true)
+        XCTAssertFalse(
+            panel?.collectionBehavior.contains(.moveToActiveSpace) ?? true
+        )
+        XCTAssertFalse(
+            panel?.collectionBehavior.contains(.canJoinAllSpaces) ?? true
+        )
 
         if let darkAppearance = NSAppearance(named: .darkAqua) {
             controller.applyAppearance(darkAppearance)
@@ -65,8 +137,10 @@ final class ClipletPreviewPanelTests: XCTestCase {
             contentHash: UUID().uuidString,
             sourceAppName: "测试"
         )
-        let controller = ClipletPreviewPanelController(hideDelay: .milliseconds(10))
-        controller.show(
+        let insideController = ClipletPreviewPanelController(
+            hideDelay: .seconds(30)
+        )
+        insideController.show(
             item: item,
             imageURL: nil,
             thumbnailURL: nil,
@@ -74,14 +148,32 @@ final class ClipletPreviewPanelTests: XCTestCase {
             relativeTo: nil
         )
 
-        controller.setPreviewPointerInside(true)
-        controller.requestHide()
+        insideController.setPreviewPointerInside(true)
+        insideController.requestHide()
         try? await Task.sleep(for: .milliseconds(30))
-        XCTAssertEqual(controller.panel?.isVisible, true)
+        XCTAssertEqual(insideController.panel?.isVisible, true)
+        insideController.hide()
 
-        controller.setPreviewPointerInside(false)
-        try? await Task.sleep(for: .milliseconds(30))
-        XCTAssertEqual(controller.panel?.isVisible, false)
+        let exitController = ClipletPreviewPanelController(
+            hideDelay: .milliseconds(10)
+        )
+        exitController.show(
+            item: item,
+            imageURL: nil,
+            thumbnailURL: nil,
+            referenceDate: Date(),
+            relativeTo: nil
+        )
+        // Keep the real pointer from racing this state-driven unit test when
+        // rendering tests execute in parallel and temporarily move the mouse.
+        exitController.panel?.setFrameOrigin(
+            NSPoint(x: -10_000, y: -10_000)
+        )
+        exitController.setPreviewPointerInside(false)
+        for _ in 0..<200 where exitController.panel?.isVisible == true {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(exitController.panel?.isVisible, false)
     }
 
     func testWideImagePreviewStaysContentFocusedAndWithinScreen() {
@@ -120,6 +212,29 @@ final class ClipletPreviewPanelTests: XCTestCase {
         XCTAssertGreaterThan(long.width, short.width)
         XCTAssertGreaterThan(long.height, short.height)
         XCTAssertLessThanOrEqual(long.height, 680)
+    }
+
+    func testTextNoteAddsRoomWithoutExceedingTheScreen() {
+        let visibleFrame = CGRect(x: 0, y: 0, width: 1_440, height: 900)
+        let withoutNote = ClipletPreviewPanelController.preferredSize(
+            kind: .text,
+            imageSize: nil,
+            hasTags: false,
+            visibleFrame: visibleFrame,
+            text: "一段简短文本"
+        )
+        let withNote = ClipletPreviewPanelController.preferredSize(
+            kind: .text,
+            imageSize: nil,
+            hasTags: false,
+            visibleFrame: visibleFrame,
+            text: "一段简短文本",
+            note: "这是用于整理收藏内容的备注。"
+        )
+
+        XCTAssertGreaterThan(withNote.height, withoutNote.height)
+        XCTAssertGreaterThanOrEqual(withNote.height, 215)
+        XCTAssertLessThanOrEqual(withNote.height, 680)
     }
 
     func testPortraitPreviewAndFallbackOriginStayInsideVisibleFrame() {

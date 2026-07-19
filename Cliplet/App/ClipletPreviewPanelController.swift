@@ -38,7 +38,8 @@ final class ClipletPreviewPanelController {
             imageSize: imageSize,
             hasTags: !item.tags.isEmpty,
             visibleFrame: visibleFrame,
-            text: item.text
+            text: item.text,
+            note: item.note
         )
 
         let preview = ClipboardItemExpandedPreview(
@@ -123,13 +124,18 @@ final class ClipletPreviewPanelController {
         imageSize: CGSize?,
         hasTags _: Bool,
         visibleFrame: CGRect,
-        text: String? = nil
+        text: String? = nil,
+        note: String? = nil
     ) -> CGSize {
         let maxWidth = max(360, min(780, visibleFrame.width - 40))
         let maxHeight = max(220, min(680, visibleFrame.height - 40))
 
         guard kind == .image else {
-            let value = text ?? ""
+            let noteValue = note?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let value = noteValue.isEmpty
+                ? (text ?? "")
+                : "\(noteValue)\n\(text ?? "")"
             let wrappedLineCount = value
                 .split(separator: "\n", omittingEmptySubsequences: false)
                 .reduce(into: 0) { count, line in
@@ -137,7 +143,17 @@ final class ClipletPreviewPanelController {
                 }
             let lineCount = max(1, wrappedLineCount)
             let width = min(maxWidth, value.count > 180 || lineCount > 6 ? 600 : 480)
-            let contentHeight = max(136, min(maxHeight - 39, CGFloat(lineCount * 20 + 32)))
+            // The note card has its own icon, padding, border, and an
+            // "Original Content" divider. Keep short noted clips fully
+            // visible instead of forcing an unnecessary initial scroll.
+            let noteChromeHeight: CGFloat = noteValue.isEmpty ? 0 : 112
+            let contentHeight = max(
+                136,
+                min(
+                    maxHeight - 39,
+                    CGFloat(lineCount * 20 + 32) + noteChromeHeight
+                )
+            )
             return CGSize(
                 width: width,
                 height: min(maxHeight, 39 + contentHeight)
@@ -216,7 +232,10 @@ final class ClipletPreviewPanelController {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        panel.hidesOnDeactivate = true
+        // Showing this nonactivating panel can briefly change application
+        // activation state. Nimclip explicitly hides it when the picker closes,
+        // so AppKit must not hide it during that internal window transition.
+        panel.hidesOnDeactivate = false
         panel.ignoresMouseEvents = false
         panel.acceptsMouseMovedEvents = true
         panel.isMovable = false
@@ -225,7 +244,6 @@ final class ClipletPreviewPanelController {
         panel.animationBehavior = .none
         panel.collectionBehavior = [
             .transient,
-            .moveToActiveSpace,
             .fullScreenAuxiliary,
             .ignoresCycle
         ]

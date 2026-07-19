@@ -38,7 +38,6 @@ final class ClipletViewModel {
     private(set) var imageTextIndexCompletedCount = 0
     private(set) var imageTextIndexTotalCount = 0
     private(set) var imageTextIndexFailureCount = 0
-    private(set) var listPresentationGeneration = 0
     private(set) var selectionScrollGeneration = 0
 
     var onShowRequested: (() -> Void)?
@@ -56,12 +55,12 @@ final class ClipletViewModel {
     private var hotKeyManager: GlobalHotKeyManager?
     private var hotKeyMonitor: Any?
     private var toastTask: Task<Void, Never>?
+    private var immediateClipboardRefreshTask: Task<Void, Never>?
     private var imageTextRecognitionTask: Task<Void, Never>?
     private var queuedImageTextItemIDs: [UUID] = []
     private var queuedImageTextItemIDSet: Set<UUID> = []
     private var imageTextRecognitionGeneration = 0
     private var shouldNotifyWhenImageTextIndexFinishes = false
-    private var lastPresentedNewestItemID: UUID?
     private var revision = 0
     @ObservationIgnored private var presentationKindCache: [String: ClipboardPresentationKind] = [:]
     @ObservationIgnored private var textPreviewCache: [String: String] = [:]
@@ -80,7 +79,6 @@ final class ClipletViewModel {
         self.imageTextRecognizer = imageTextRecognizer
         rebuildVisibleItems()
         selectedItemID = visibleItems.first?.id
-        lastPresentedNewestItemID = selectedItemID
 
         monitor.onCapture = { [weak self] capture in
             self?.ingest(capture)
@@ -286,7 +284,22 @@ final class ClipletViewModel {
     }
 
     func prepareForImmediateShow() {
+        let sourceApplication = ClipboardSourceApplication(
+            application: NSWorkspace.shared.frontmostApplication
+        )
         pasteCoordinator.rememberFrontmostApplication()
+        immediateClipboardRefreshTask?.cancel()
+        immediateClipboardRefreshTask = nil
+        if !isPaused {
+            // A copy immediately followed by the global shortcut can arrive
+            // before either its pasteboard change or its promised data is
+            // available. Poll once synchronously, then retry in a short burst
+            // instead of waiting for the regular 500 ms monitor interval.
+            monitor.pollNow(sourceApplication: sourceApplication)
+            scheduleImmediateClipboardRefresh(
+                sourceApplication: sourceApplication
+            )
+        }
     }
 
     func finishShowing() {
@@ -295,17 +308,10 @@ final class ClipletViewModel {
             timestampReferenceDate = currentDate
         }
 
-        let newestItemID = items.first?.id
-        // Preserve the reusable list's selection and scroll position across
-        // quick reopenings. Only return to the top when new clipboard content
-        // has actually arrived since the previous presentation.
-        if newestItemID != lastPresentedNewestItemID {
-            selectedItemID = newestItemID
-            listPresentationGeneration &+= 1
-        } else {
-            ensureValidSelection()
-        }
-        lastPresentedNewestItemID = newestItemID
+        // Keep the reusable list exactly where the user left it. Selecting the
+        // newest item here used to trigger a visible scroll-to-top after the
+        // popover was already on screen.
+        ensureValidSelection()
     }
 
     func presentationKind(for item: ClipboardItem) -> ClipboardPresentationKind {
@@ -499,6 +505,23 @@ final class ClipletViewModel {
         }
     }
 
+    @discardableResult
+    func setNote(_ note: String?, for item: ClipboardItem) -> Bool {
+        let isRemoving = note?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty != false
+        do {
+            try store.setNote(note, for: item)
+            markStateChanged(rebuildItems: true)
+            ensureValidSelection()
+            showToast(localized(isRemoving ? "备注已删除" : "备注已保存"))
+            return true
+        } catch {
+            showToast(localizedDescription(for: error))
+            return false
+        }
+    }
+
     func delete(_ item: ClipboardItem) {
         let deletedID = item.id
         perform(success: localized("已删除")) {
@@ -539,7 +562,7 @@ final class ClipletViewModel {
 
     func clearHistory() {
         perform(success: localized("历史记录已清空")) {
-            try store.clearHistory(includingFavorites: false)
+            try store.clearHistory()
         }
         selectedItemID = items.first?.id
     }
@@ -587,6 +610,8 @@ final class ClipletViewModel {
     }
 
     func shutdown() {
+        immediateClipboardRefreshTask?.cancel()
+        immediateClipboardRefreshTask = nil
         monitor.stop()
         cancelHotKeyRecording()
         cancelImageTextIndexing(showNotice: false)
@@ -633,6 +658,20 @@ final class ClipletViewModel {
             // Empty clipboard strings are intentionally ignored.
         } catch {
             showToast(localizedDescription(for: error))
+        }
+    }
+
+    private func scheduleImmediateClipboardRefresh(
+        sourceApplication: ClipboardSourceApplication
+    ) {
+        immediateClipboardRefreshTask = Task { @MainActor [weak self] in
+            for delay in Self.immediateClipboardRefreshDelays {
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled, let self, !isPaused else { return }
+                monitor.pollNow(sourceApplication: sourceApplication)
+                finishShowing()
+            }
+            self?.immediateClipboardRefreshTask = nil
         }
     }
 
@@ -926,6 +965,14 @@ final class ClipletViewModel {
             $0.id == $1.id
         }
     }
+
+    private static let immediateClipboardRefreshDelays: [Duration] = [
+        .milliseconds(12),
+        .milliseconds(28),
+        .milliseconds(60),
+        .milliseconds(125),
+        .milliseconds(250)
+    ]
 
     private static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
         var value: UInt32 = 0

@@ -6,6 +6,8 @@ final class ClipboardItem {
     @Attribute(.unique) var id: UUID
     var kindRawValue: String
     var text: String?
+    var note: String?
+    var noteUpdatedAt: Date?
     var imageRelativePath: String?
     var thumbnailRelativePath: String?
     var imageTypeIdentifier: String?
@@ -35,6 +37,8 @@ final class ClipboardItem {
         id: UUID = UUID(),
         kind: ClipboardContentKind,
         text: String? = nil,
+        note: String? = nil,
+        noteUpdatedAt: Date? = nil,
         imageRelativePath: String? = nil,
         thumbnailRelativePath: String? = nil,
         imageTypeIdentifier: String? = nil,
@@ -52,6 +56,8 @@ final class ClipboardItem {
         self.id = id
         self.kindRawValue = kind.rawValue
         self.text = text
+        self.note = note
+        self.noteUpdatedAt = noteUpdatedAt
         self.imageRelativePath = imageRelativePath
         self.thumbnailRelativePath = thumbnailRelativePath
         self.imageTypeIdentifier = imageTypeIdentifier

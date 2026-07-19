@@ -57,7 +57,7 @@ extension Color {
         nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                 ? NSColor(calibratedWhite: 0.20, alpha: 1)
-                : NSColor(calibratedWhite: 0.92, alpha: 1)
+                : NSColor(calibratedWhite: 0.885, alpha: 1)
         }
     )
     static let clipletSelection = Color(

@@ -21,6 +21,13 @@ final class ClipletAppDelegate:
     NSWindowDelegate,
     NSPopoverDelegate
 {
+    static let menuPopoverBehavior: NSPopover.Behavior = .applicationDefined
+    static let menuPopoverWindowCollectionBehavior: NSWindow.CollectionBehavior = [
+        .fullScreenAuxiliary,
+        .transient,
+        .ignoresCycle
+    ]
+
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private let previewPanelController = ClipletPreviewPanelController()
@@ -30,6 +37,7 @@ final class ClipletAppDelegate:
     private var settingsWindow: NSWindow?
     private var viewModel: ClipletViewModel?
     private var automaticUpdateTask: Task<Void, Never>?
+    private var outsideClickMonitor: Any?
     private var isCheckingForUpdates = false
     #if DEBUG
     private var debugPreviewWindow: NSWindow?
@@ -66,6 +74,12 @@ final class ClipletAppDelegate:
                 name: .nimclipCheckForUpdatesRequested,
                 object: nil
             )
+            NSWorkspace.shared.notificationCenter.addObserver(
+                self,
+                selector: #selector(workspaceApplicationDidActivate),
+                name: NSWorkspace.didActivateApplicationNotification,
+                object: nil
+            )
             scheduleAutomaticUpdateChecks()
 
             #if DEBUG
@@ -93,7 +107,9 @@ final class ClipletAppDelegate:
     func applicationWillTerminate(_ notification: Notification) {
         automaticUpdateTask?.cancel()
         modifierKeyMonitor.stop()
+        stopOutsideClickMonitor()
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         previewPanelController.hide()
         viewModel?.shutdown()
     }
@@ -110,6 +126,7 @@ final class ClipletAppDelegate:
             return
         }
         modifierKeyMonitor.stop()
+        stopOutsideClickMonitor()
         previewPanelController.hide()
     }
 
@@ -233,7 +250,11 @@ final class ClipletAppDelegate:
     }
 
     private func configurePopover(with viewModel: ClipletViewModel) {
-        popover.behavior = .transient
+        // Option preview is a second Nimclip-owned window, so the popover stays
+        // application-defined instead of treating that panel as an outside
+        // interaction. A global mouse monitor below restores normal transient
+        // behavior for clicks in every other app, desktop, Space, and display.
+        popover.behavior = Self.menuPopoverBehavior
         popover.animates = false
         popover.delegate = self
         popover.contentSize = NSSize(width: 440, height: 600)
@@ -255,7 +276,7 @@ final class ClipletAppDelegate:
             closePopover()
         } else {
             viewModel?.prepareForImmediateShow()
-            showPopover(activateApplication: false)
+            showPopover(activateApplication: true)
         }
     }
 
@@ -265,6 +286,11 @@ final class ClipletAppDelegate:
         if !popover.isShown {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
+        if let window = popover.contentViewController?.view.window {
+            window.collectionBehavior = Self.menuPopoverWindowCollectionBehavior
+            window.orderFrontRegardless()
+        }
+        startOutsideClickMonitor()
 
         // Return to AppKit's run loop after ordering the prebuilt popover. App
         // activation and first-responder changes can synchronously coordinate
@@ -282,8 +308,27 @@ final class ClipletAppDelegate:
 
     private func closePopover() {
         modifierKeyMonitor.stop()
+        stopOutsideClickMonitor()
         previewPanelController.hide()
         popover.performClose(nil)
+    }
+
+    private func startOutsideClickMonitor() {
+        guard outsideClickMonitor == nil else { return }
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, popover.isShown else { return }
+                closePopover()
+            }
+        }
+    }
+
+    private func stopOutsideClickMonitor() {
+        guard let outsideClickMonitor else { return }
+        NSEvent.removeMonitor(outsideClickMonitor)
+        self.outsideClickMonitor = nil
     }
 
     private func applyAppearance(
@@ -325,22 +370,26 @@ final class ClipletAppDelegate:
     }
 
     private func makeMenuRootView(with viewModel: ClipletViewModel) -> MenuBarRootView {
-        MenuBarRootView(viewModel: viewModel) { [weak self] item in
-            guard let self else { return }
-            guard let item else {
-                previewPanelController.requestHide()
-                return
-            }
+        MenuBarRootView(
+            viewModel: viewModel,
+            modifierKeyMonitor: modifierKeyMonitor,
+            onPreviewChange: { [weak self] item in
+                guard let self else { return }
+                guard let item else {
+                    previewPanelController.requestHide()
+                    return
+                }
 
-            previewPanelController.show(
-                item: item,
-                imageURL: viewModel.imageURL(for: item),
-                thumbnailURL: viewModel.thumbnailURL(for: item),
-                referenceDate: viewModel.timestampReferenceDate,
-                language: viewModel.language,
-                relativeTo: popover.contentViewController?.view.window
-            )
-        }
+                previewPanelController.show(
+                    item: item,
+                    imageURL: viewModel.imageURL(for: item),
+                    thumbnailURL: viewModel.thumbnailURL(for: item),
+                    referenceDate: viewModel.timestampReferenceDate,
+                    language: viewModel.language,
+                    relativeTo: popover.contentViewController?.view.window
+                )
+            }
+        )
     }
 
     @objc
@@ -361,6 +410,18 @@ final class ClipletAppDelegate:
     @objc
     private func checkForUpdatesRequested(_ notification: Notification) {
         requestUpdateCheck(manual: true)
+    }
+
+    @objc
+    private func workspaceApplicationDidActivate(_ notification: Notification) {
+        guard popover.isShown,
+              let application = notification.userInfo?[
+                  NSWorkspace.applicationUserInfoKey
+              ] as? NSRunningApplication,
+              application.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
+            return
+        }
+        closePopover()
     }
 
     private func requestUpdateCheck(manual: Bool) {

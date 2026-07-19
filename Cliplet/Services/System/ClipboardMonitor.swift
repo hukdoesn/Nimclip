@@ -60,7 +60,9 @@ public final class ClipboardMonitor {
         isRunning = false
     }
 
-    public func pollNow() {
+    public func pollNow(
+        sourceApplication: ClipboardSourceApplication? = nil
+    ) {
         let currentChangeCount = pasteboard.changeCount
         guard currentChangeCount != lastChangeCount else { return }
 
@@ -101,7 +103,7 @@ public final class ClipboardMonitor {
             return
         }
 
-        let source = ClipboardSourceApplication(
+        let source = sourceApplication ?? ClipboardSourceApplication(
             application: NSWorkspace.shared.frontmostApplication
         )
         onCapture?(

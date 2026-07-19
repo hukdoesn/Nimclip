@@ -141,6 +141,47 @@ final class ClipboardSystemTests: XCTestCase {
         XCTAssertFalse(
             ModifierKeyMonitor.optionIsPressed(in: [.command, .shift])
         )
+        XCTAssertTrue(
+            ModifierKeyMonitor.optionIsPressed(
+                in: [.option],
+                physicalStateIsPressed: false
+            ),
+            "The AppKit event flags must be sufficient when CGEvent state is unavailable"
+        )
+        XCTAssertTrue(
+            ModifierKeyMonitor.optionIsPressed(
+                in: [],
+                physicalStateIsPressed: true
+            )
+        )
+    }
+
+    func testSourceAppIconLoaderUsesTheWorkspaceFileIconAndCachesIt() {
+        let applicationURL = URL(fileURLWithPath: "/Applications/Example.app")
+        let workspaceIcon = NSImage(
+            size: NSSize(width: 128, height: 128)
+        )
+        var requestedBundleIdentifiers: [String] = []
+        var requestedPaths: [String] = []
+        let loader = ClipletSourceAppIconLoader(
+            applicationURLProvider: { bundleIdentifier in
+                requestedBundleIdentifiers.append(bundleIdentifier)
+                return applicationURL
+            },
+            fileIconProvider: { path in
+                requestedPaths.append(path)
+                return workspaceIcon
+            }
+        )
+
+        let first = loader.icon(bundleIdentifier: "com.example.app")
+        let second = loader.icon(bundleIdentifier: "com.example.app")
+
+        XCTAssertNotNil(first)
+        XCTAssertTrue(first === second)
+        XCTAssertEqual(first?.size, NSSize(width: 38, height: 38))
+        XCTAssertEqual(requestedBundleIdentifiers, ["com.example.app"])
+        XCTAssertEqual(requestedPaths, [applicationURL.path])
     }
 
     func testMonitorCapturesPlainTextAndSourceMetadata() throws {
@@ -151,13 +192,20 @@ final class ClipboardSystemTests: XCTestCase {
 
         pasteboard.clearContents()
         XCTAssertTrue(pasteboard.setString("captured text", forType: .string))
-        monitor.pollNow()
+        let sourceApplication = ClipboardSourceApplication(
+            name: "Source App",
+            bundleIdentifier: "com.example.source",
+            processIdentifier: 123
+        )
+        monitor.pollNow(sourceApplication: sourceApplication)
 
-        guard case let .text(text, archive) = try XCTUnwrap(received).content else {
+        let capture = try XCTUnwrap(received)
+        guard case let .text(text, archive) = capture.content else {
             return XCTFail("Expected text capture")
         }
         XCTAssertEqual(text, "captured text")
         XCTAssertNil(archive, "Pure text should keep the legacy lightweight storage path")
+        XCTAssertEqual(capture.sourceApplication, sourceApplication)
     }
 
     func testMonitorPrefersImageWhenScreenshotAlsoProvidesText() throws {

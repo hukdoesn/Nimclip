@@ -12,7 +12,7 @@ final class ClipboardStoreTests: XCTestCase {
         defer { fixture.cleanup() }
 
         XCTAssertEqual(fixture.store.settings.historyLimit, 500)
-        XCTAssertEqual(fixture.store.settings.retentionDays, 7)
+        XCTAssertEqual(fixture.store.settings.retentionDays, 2)
         XCTAssertEqual(
             fixture.store.settings.appearanceModeRawValue,
             NimclipAppearanceMode.dark.rawValue
@@ -228,6 +228,117 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertEqual(fixture.store.filteredItems(tag: work).map(\.id), [note.id])
     }
 
+    func testNoteIsSearchableMetadataThatDoesNotReorderOrAlterClipboardContent() throws {
+        var now = Date(timeIntervalSince1970: 5_000)
+        let fixture = try makeStore(now: { now })
+        defer { fixture.cleanup() }
+
+        let archive = formattedTextArchive(
+            text: "Release checklist",
+            html: "<strong>Release checklist</strong>"
+        )
+        let item = try fixture.store.ingestText(
+            "Release checklist",
+            archive: archive,
+            sourceAppName: "Notes"
+        )
+        try fixture.store.setFavorite(true, for: item)
+        let originalUpdatedAt = item.updatedAt
+        let originalHash = item.contentHash
+        let originalArchive = item.pasteboardArchiveData
+
+        now.addTimeInterval(30)
+        let newerItem = try fixture.store.ingestText("A newer clipboard item")
+        let orderBeforeEditing = fixture.store.items.map(\.id)
+
+        now.addTimeInterval(30)
+        try fixture.store.setNote(
+            "  发布前确认签名\n并通知测试人员  ",
+            for: item
+        )
+
+        XCTAssertEqual(item.note, "发布前确认签名\n并通知测试人员")
+        XCTAssertEqual(item.noteUpdatedAt, now)
+        XCTAssertEqual(item.updatedAt, originalUpdatedAt)
+        XCTAssertEqual(item.text, "Release checklist")
+        XCTAssertEqual(item.contentHash, originalHash)
+        XCTAssertEqual(item.pasteboardArchiveData, originalArchive)
+        XCTAssertEqual(fixture.store.pasteboardArchive(for: item), archive)
+        XCTAssertEqual(fixture.store.items.map(\.id), orderBeforeEditing)
+        XCTAssertEqual(fixture.store.items.first?.id, newerItem.id)
+        XCTAssertEqual(
+            fixture.store.filteredItems(searchText: "通知测试").map(\.id),
+            [item.id]
+        )
+
+        now.addTimeInterval(30)
+        let duplicate = try fixture.store.ingestText(
+            "Release checklist",
+            archive: archive,
+            sourceAppName: "TextEdit"
+        )
+        XCTAssertEqual(duplicate.id, item.id)
+        XCTAssertEqual(duplicate.note, "发布前确认签名\n并通知测试人员")
+
+        try fixture.store.setFavorite(false, for: duplicate)
+        XCTAssertEqual(duplicate.note, "发布前确认签名\n并通知测试人员")
+
+        try fixture.store.setNote(" \n\t ", for: duplicate)
+        XCTAssertNil(duplicate.note)
+        XCTAssertNil(duplicate.noteUpdatedAt)
+    }
+
+    func testNoteLengthIsBoundedAndPersistsWhenDiskStoreIsReopened() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ClipletNotePersistenceTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeURL = directory.appendingPathComponent("notes.store")
+        let itemID: UUID
+        let expectedNote = String(
+            String(
+                repeating: "备注",
+                count: ClipboardStore.maximumNoteCharacters
+            )
+            .prefix(ClipboardStore.maximumNoteCharacters)
+        )
+
+        do {
+            let store = try makeDiskStore(storeURL: storeURL, directory: directory)
+            let item = try store.ingestText("Persistent note")
+            itemID = item.id
+            try store.setFavorite(true, for: item)
+            try store.setNote(
+                String(repeating: "备注", count: ClipboardStore.maximumNoteCharacters),
+                for: item
+            )
+            XCTAssertEqual(item.note?.count, ClipboardStore.maximumNoteCharacters)
+        }
+
+        let reopenedStore = try makeDiskStore(
+            storeURL: storeURL,
+            directory: directory
+        )
+        let restoredItem = try XCTUnwrap(
+            reopenedStore.items.first { $0.id == itemID }
+        )
+
+        XCTAssertEqual(restoredItem.note, expectedNote)
+        XCTAssertNotNil(restoredItem.noteUpdatedAt)
+        XCTAssertTrue(restoredItem.isFavorite)
+        XCTAssertEqual(
+            reopenedStore.filteredItems(searchText: "备注").map(\.id),
+            [itemID]
+        )
+    }
+
     func testRetentionExpiresOnlyUnfavoritedItems() throws {
         var now = Date(timeIntervalSince1970: 10_000)
         let fixture = try makeStore(now: { now })
@@ -238,7 +349,7 @@ final class ClipboardStoreTests: XCTestCase {
         try fixture.store.setFavorite(true, for: protected)
 
         now.addTimeInterval(31 * 24 * 60 * 60)
-        try fixture.store.enforceRetention()
+        try fixture.store.updateSettings(retentionDays: 1)
 
         XCTAssertFalse(fixture.store.items.contains { $0.id == expired.id })
         XCTAssertTrue(fixture.store.items.contains { $0.id == protected.id })
@@ -268,6 +379,35 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertFalse(fixture.store.items.contains { $0.text == "history item 0" })
         XCTAssertFalse(fixture.store.items.contains { $0.text == "history item 1" })
         XCTAssertTrue(fixture.store.items.contains { $0.text == "history item 101" })
+    }
+
+    func testClearHistoryKeepsFavoriteTextImageAndImageFiles() throws {
+        let fixture = try makeStore()
+        defer { fixture.cleanup() }
+
+        _ = try fixture.store.ingestText("disposable history")
+        let favoriteText = try fixture.store.ingestText("protected text")
+        try fixture.store.setFavorite(true, for: favoriteText)
+
+        let pngData = try XCTUnwrap(
+            Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+        )
+        let favoriteImage = try fixture.store.ingestImage(
+            pngData,
+            typeIdentifier: UTType.png.identifier
+        )
+        try fixture.store.setFavorite(true, for: favoriteImage)
+        let originalURL = try XCTUnwrap(fixture.store.imageURL(for: favoriteImage))
+        let thumbnailURL = try XCTUnwrap(fixture.store.thumbnailURL(for: favoriteImage))
+
+        try fixture.store.clearHistory()
+
+        XCTAssertEqual(
+            Set(fixture.store.items.map(\.id)),
+            Set([favoriteText.id, favoriteImage.id])
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: originalURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: thumbnailURL.path))
     }
 
     func testImagePersistsTypeAndRemovesFilesOnDelete() throws {
@@ -563,27 +703,39 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertFalse(reopenedStore.settings.automaticImageTextRecognition)
     }
 
-    func testUntouchedLegacyDefaultMigratesWithoutOverwritingAUserChoice() throws {
+    func testUntouchedEarlierDefaultsMigrateWithoutOverwritingAUserChoice() throws {
         let createdAt = Date(timeIntervalSince1970: 1_000)
-        let untouched = AppSettings(
-            retentionDays: AppSettings.legacyDefaultRetentionDays,
-            createdAt: createdAt,
-            updatedAt: createdAt
-        )
-        let migratedStore = try makeStore(preloadedSettings: untouched)
-        defer { migratedStore.cleanup() }
+        for earlierDefault in AppSettings.earlierDefaultRetentionDays {
+            do {
+                let untouched = AppSettings(
+                    retentionDays: earlierDefault,
+                    createdAt: createdAt,
+                    updatedAt: createdAt
+                )
+                let migratedStore = try makeStore(preloadedSettings: untouched)
+                defer { migratedStore.cleanup() }
 
-        XCTAssertEqual(migratedStore.store.settings.retentionDays, 7)
+                XCTAssertEqual(
+                    migratedStore.store.settings.retentionDays,
+                    AppSettings.defaultRetentionDays
+                )
+            }
 
-        let customized = AppSettings(
-            retentionDays: AppSettings.legacyDefaultRetentionDays,
-            createdAt: createdAt,
-            updatedAt: createdAt.addingTimeInterval(60)
-        )
-        let preservedStore = try makeStore(preloadedSettings: customized)
-        defer { preservedStore.cleanup() }
+            do {
+                let customized = AppSettings(
+                    retentionDays: earlierDefault,
+                    createdAt: createdAt,
+                    updatedAt: createdAt.addingTimeInterval(60)
+                )
+                let preservedStore = try makeStore(preloadedSettings: customized)
+                defer { preservedStore.cleanup() }
 
-        XCTAssertEqual(preservedStore.store.settings.retentionDays, 30)
+                XCTAssertEqual(
+                    preservedStore.store.settings.retentionDays,
+                    earlierDefault
+                )
+            }
+        }
     }
 
     private func makeStore(

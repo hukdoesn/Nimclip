@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import Observation
 
 private final class ModifierKeyPhysicalStateMonitor: @unchecked Sendable {
     private let queue = DispatchQueue(
@@ -61,15 +62,16 @@ private final class ModifierKeyPhysicalStateMonitor: @unchecked Sendable {
 }
 
 @MainActor
+@Observable
 final class ModifierKeyMonitor {
     static let optionKeyStateDidChange = Notification.Name(
         "com.nimclip.option-key-state-did-change"
     )
     static let isPressedUserInfoKey = "isPressed"
 
-    private var localMonitor: Any?
-    private var physicalStateMonitor: ModifierKeyPhysicalStateMonitor?
-    private var isOptionPressed = false
+    @ObservationIgnored private var localMonitor: Any?
+    @ObservationIgnored private var physicalStateMonitor: ModifierKeyPhysicalStateMonitor?
+    private(set) var isOptionPressed = false
 
     func start() {
         guard localMonitor == nil, physicalStateMonitor == nil else { return }
@@ -103,7 +105,7 @@ final class ModifierKeyMonitor {
         }
         physicalStateMonitor?.stop()
         physicalStateMonitor = nil
-        isOptionPressed = false
+        updateOptionState(false)
     }
 
     static func optionIsPressed(
@@ -114,8 +116,22 @@ final class ModifierKeyMonitor {
             .contains(.option)
     }
 
+    static func optionIsPressed(
+        in modifierFlags: NSEvent.ModifierFlags,
+        physicalStateIsPressed: Bool
+    ) -> Bool {
+        optionIsPressed(in: modifierFlags) || physicalStateIsPressed
+    }
+
     static var isOptionPhysicallyPressed: Bool {
         ModifierKeyPhysicalStateMonitor.currentOptionIsPressed
+    }
+
+    static var isOptionPressedNow: Bool {
+        optionIsPressed(
+            in: NSEvent.modifierFlags,
+            physicalStateIsPressed: isOptionPhysicallyPressed
+        )
     }
 
     private func updateOptionState(_ isPressed: Bool) {

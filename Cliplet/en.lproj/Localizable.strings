@@ -76,6 +76,19 @@
 "已取消收藏" = "Removed from Favorites";
 "已加入收藏" = "Added to Favorites";
 "已删除" = "Deleted";
+"有备注" = "Has Note";
+"备注" = "Note";
+"原始内容" = "Original Content";
+"添加备注…" = "Add Note…";
+"编辑备注…" = "Edit Note…";
+"添加备注" = "Add Note";
+"编辑备注" = "Edit Note";
+"删除备注" = "Delete Note";
+"保存" = "Save";
+"输入备注…" = "Enter a note…";
+"备注仅用于整理和搜索，不会改变复制或粘贴的原文。" = "Notes are only for organization and search. They do not change the original copied or pasted content.";
+"备注已保存" = "Note saved";
+"备注已删除" = "Note deleted";
 
 /* Filters and tags */
 "全部标签" = "All Tags";
@@ -133,6 +146,7 @@
 "清空全部历史记录？" = "Clear all clipboard history?";
 "清空历史" = "Clear History";
 "收藏内容会保留。" = "Favorite clips will be kept.";
+"只会清空未收藏的记录，收藏内容会保留。" = "Only non-favorite clips will be cleared. Favorites will be kept.";
 "版本 %@" = "Version %@";
 "数据仅保存在这台 Mac" = "Data stays on this Mac";
 "快捷键" = "Keyboard Shortcut";
@@ -140,6 +154,7 @@
 "历史记录" = "Clipboard History";
 "最多保留" = "Maximum Clips";
 "达到数量上限后会自动删除最旧的未收藏记录；收藏不计入数量上限。" = "When the limit is reached, the oldest non-favorite clips are deleted automatically. Favorites do not count toward the limit.";
+"收藏内容不会被保留时间、数量上限或“清空历史”删除。" = "Favorites are never removed by the retention period, history limit, or Clear History.";
 "条" = "clips";
 "保留时间" = "Retention Period";
 "天" = "days";

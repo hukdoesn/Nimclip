@@ -51,6 +51,11 @@ final class ClipletRenderingTests: XCTestCase {
             "完整内容预览保留换行。\n\n" + String(repeating: "Nimclip 会展示未截断的文本内容。\n", count: 18),
             sourceAppName: "备忘录"
         )
+        try fixture.store.setFavorite(true, for: textItem)
+        try fixture.store.setNote(
+            "发布前再次核对这段收藏内容；备注不会进入粘贴结果。\n负责人：Nimclip 测试组",
+            for: textItem
+        )
         let imageItem = try fixture.store.ingestImage(
             try previewImageData(),
             sourceAppName: "预览"
@@ -88,7 +93,8 @@ final class ClipletRenderingTests: XCTestCase {
                 imageSize: nil,
                 hasTags: false,
                 visibleFrame: previewVisibleFrame,
-                text: textItem.text
+                text: textItem.text,
+                note: textItem.note
             )
             let textData = try render(
                 ClipboardItemExpandedPreview(
@@ -211,28 +217,58 @@ final class ClipletRenderingTests: XCTestCase {
         }
 
         viewModel.prepareToShow()
+        var visibleRowIDs = Set<UUID>()
+        var peakVisibleRowCount = 0
         let hostingView = NSHostingView(
-            rootView: MenuBarRootView(viewModel: viewModel)
+            rootView: MenuBarRootView(
+                viewModel: viewModel,
+                onRowVisibilityChange: { itemID, isVisible in
+                    if isVisible {
+                        visibleRowIDs.insert(itemID)
+                    } else {
+                        visibleRowIDs.remove(itemID)
+                    }
+                    peakVisibleRowCount = max(
+                        peakVisibleRowCount,
+                        visibleRowIDs.count
+                    )
+                }
+            )
         )
         hostingView.frame = NSRect(x: 0, y: 0, width: 440, height: 600)
         hostingView.layoutSubtreeIfNeeded()
         hostingView.displayIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
 
-        let tableView = try XCTUnwrap(
-            firstSubview(of: NSTableView.self, in: hostingView),
-            "The SwiftUI List should be backed by a reusable native table"
+        let scrollView = try XCTUnwrap(
+            firstSubview(of: NSScrollView.self, in: hostingView),
+            "The history should be hosted in a native scroll view"
         )
-        XCTAssertEqual(tableView.numberOfRows, 500)
-        XCTAssertLessThan(materializedRowCount(in: tableView), 40)
+        XCTAssertEqual(viewModel.items.count, 500)
+        XCTAssertGreaterThan(visibleRowIDs.count, 0)
+        XCTAssertLessThan(visibleRowIDs.count, 40)
 
-        for row in stride(from: 499, through: 0, by: -25) {
-            tableView.scrollRowToVisible(row)
-            tableView.layoutSubtreeIfNeeded()
+        let viewportHeight = scrollView.contentView.bounds.height
+        let contentHeight = scrollView.documentView?.bounds.height ?? viewportHeight
+        let maximumOffset = max(0, contentHeight - viewportHeight)
+        for fraction in stride(from: 0.1, through: 1.0, by: 0.1) {
+            scrollView.contentView.scroll(
+                to: NSPoint(x: 0, y: maximumOffset * fraction)
+            )
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+            hostingView.layoutSubtreeIfNeeded()
+            hostingView.displayIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+            XCTAssertLessThan(
+                visibleRowIDs.count,
+                40,
+                "Only rows around the current viewport should stay visible"
+            )
         }
         XCTAssertLessThan(
-            materializedRowCount(in: tableView),
+            peakVisibleRowCount,
             60,
-            "Scrolling must reuse row views instead of retaining the whole history"
+            "Scrolling must not materialize the whole history at once"
         )
     }
 
@@ -349,13 +385,6 @@ final class ClipletRenderingTests: XCTestCase {
         return nil
     }
 
-    private func materializedRowCount(in tableView: NSTableView) -> Int {
-        (0..<tableView.numberOfRows).reduce(into: 0) { count, row in
-            if tableView.rowView(atRow: row, makeIfNecessary: false) != nil {
-                count += 1
-            }
-        }
-    }
 }
 
 @MainActor
