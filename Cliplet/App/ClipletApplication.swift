@@ -128,6 +128,7 @@ final class ClipletAppDelegate:
         modifierKeyMonitor.stop()
         stopOutsideClickMonitor()
         previewPanelController.hide()
+        viewModel?.finishDismissing()
     }
 
     private func configureMainMenu() {
@@ -285,6 +286,10 @@ final class ClipletAppDelegate:
         modifierKeyMonitor.start()
         if !popover.isShown {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            if let contentView = popover.contentViewController?.view {
+                contentView.layoutSubtreeIfNeeded()
+                Self.scrollClipboardListToBeginning(in: contentView)
+            }
         }
         if let window = popover.contentViewController?.view.window {
             window.collectionBehavior = Self.menuPopoverWindowCollectionBehavior
@@ -304,6 +309,44 @@ final class ClipletAppDelegate:
             popover.contentViewController?.view.window?.makeKey()
             viewModel?.finishShowing()
         }
+    }
+
+    @discardableResult
+    static func scrollClipboardListToBeginning(in rootView: NSView) -> Bool {
+        let scrollView = descendantScrollViews(in: rootView).max {
+            scrollableHeight(of: $0) < scrollableHeight(of: $1)
+        }
+        guard let scrollView, scrollableHeight(of: scrollView) > 0 else {
+            return false
+        }
+        guard let documentView = scrollView.documentView else { return false }
+        let targetY = documentView.isFlipped
+            ? documentView.bounds.minY
+            : documentView.bounds.maxY - scrollView.contentView.bounds.height
+        scrollView.contentView.scroll(
+            to: NSPoint(x: scrollView.contentView.bounds.minX, y: targetY)
+        )
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        return true
+    }
+
+    private static func descendantScrollViews(in rootView: NSView) -> [NSScrollView] {
+        var matches: [NSScrollView] = []
+        if let scrollView = rootView as? NSScrollView {
+            matches.append(scrollView)
+        }
+        for subview in rootView.subviews {
+            matches.append(contentsOf: descendantScrollViews(in: subview))
+        }
+        return matches
+    }
+
+    private static func scrollableHeight(of scrollView: NSScrollView) -> CGFloat {
+        max(
+            0,
+            (scrollView.documentView?.bounds.height ?? 0)
+                - scrollView.contentView.bounds.height
+        )
     }
 
     private func closePopover() {

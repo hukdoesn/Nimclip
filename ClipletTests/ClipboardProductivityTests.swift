@@ -138,7 +138,7 @@ final class ClipboardProductivityTests: XCTestCase {
         XCTAssertEqual(item.text, "原始剪贴板内容")
     }
 
-    func testPreparingToShowPreservesSelectionWhenNewContentArrives() throws {
+    func testPreparingToShowAlwaysSelectsNewestItemAndRequestsTopScroll() throws {
         var now = Date(timeIntervalSince1970: 1_000)
         let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
         let configuration = ModelConfiguration(
@@ -175,20 +175,31 @@ final class ClipboardProductivityTests: XCTestCase {
 
         viewModel.prepareToShow()
         XCTAssertEqual(viewModel.selectedItemID, viewModel.items.first?.id)
+        let firstPresentationGeneration = viewModel.listPresentationGeneration
 
         viewModel.selectNext()
         XCTAssertNotEqual(viewModel.selectedItemID, viewModel.items.first?.id)
-        let preservedSelection = viewModel.selectedItemID
 
         now.addTimeInterval(1)
         let newest = try store.ingestText("后来复制的新记录")
         viewModel.prepareToShow()
 
         XCTAssertEqual(viewModel.items.first?.id, newest.id)
-        XCTAssertEqual(viewModel.selectedItemID, preservedSelection)
+        XCTAssertEqual(viewModel.selectedItemID, newest.id)
+        XCTAssertGreaterThan(
+            viewModel.listPresentationGeneration,
+            firstPresentationGeneration
+        )
 
+        viewModel.selectNext()
+        let secondPresentationGeneration = viewModel.listPresentationGeneration
         viewModel.prepareToShow()
-        XCTAssertEqual(viewModel.selectedItemID, preservedSelection)
+        XCTAssertEqual(viewModel.selectedItemID, newest.id)
+        XCTAssertGreaterThan(
+            viewModel.listPresentationGeneration,
+            secondPresentationGeneration,
+            "Reopening without new content must still return to the newest row"
+        )
     }
 
     func testPreparingForImmediateShowCapturesTheLatestPasteboardChange() throws {

@@ -28,6 +28,7 @@ final class ClipletViewModel {
         didSet { rebuildVisibleItems() }
     }
     var selectedItemID: UUID?
+    var listScrollPositionID: UUID?
     private(set) var visibleItems: [ClipboardItem] = []
     private(set) var timestampReferenceDate = Date()
     private(set) var isPaused = false
@@ -38,6 +39,7 @@ final class ClipletViewModel {
     private(set) var imageTextIndexCompletedCount = 0
     private(set) var imageTextIndexTotalCount = 0
     private(set) var imageTextIndexFailureCount = 0
+    private(set) var listPresentationGeneration = 0
     private(set) var selectionScrollGeneration = 0
 
     var onShowRequested: (() -> Void)?
@@ -61,6 +63,7 @@ final class ClipletViewModel {
     private var queuedImageTextItemIDSet: Set<UUID> = []
     private var imageTextRecognitionGeneration = 0
     private var shouldNotifyWhenImageTextIndexFinishes = false
+    private var presentedNewestItemID: UUID?
     private var revision = 0
     @ObservationIgnored private var presentationKindCache: [String: ClipboardPresentationKind] = [:]
     @ObservationIgnored private var textPreviewCache: [String: String] = [:]
@@ -79,6 +82,8 @@ final class ClipletViewModel {
         self.imageTextRecognizer = imageTextRecognizer
         rebuildVisibleItems()
         selectedItemID = visibleItems.first?.id
+        listScrollPositionID = selectedItemID
+        presentedNewestItemID = selectedItemID
 
         monitor.onCapture = { [weak self] capture in
             self?.ingest(capture)
@@ -300,6 +305,7 @@ final class ClipletViewModel {
                 sourceApplication: sourceApplication
             )
         }
+        resetPresentationToNewest()
     }
 
     func finishShowing() {
@@ -308,10 +314,18 @@ final class ClipletViewModel {
             timestampReferenceDate = currentDate
         }
 
-        // Keep the reusable list exactly where the user left it. Selecting the
-        // newest item here used to trigger a visible scroll-to-top after the
-        // popover was already on screen.
-        ensureValidSelection()
+        let newestItemID = items.first?.id
+        if newestItemID != presentedNewestItemID {
+            resetPresentationToNewest()
+        } else {
+            ensureValidSelection()
+        }
+    }
+
+    func finishDismissing() {
+        // Clearing the binding makes the next presentation's newest item a
+        // real scroll-position change even when the reusable view is hidden.
+        listScrollPositionID = nil
     }
 
     func presentationKind(for item: ClipboardItem) -> ClipboardPresentationKind {
@@ -736,6 +750,14 @@ final class ClipletViewModel {
             return
         }
         selectedItemID = items.first?.id
+    }
+
+    private func resetPresentationToNewest() {
+        let newestItemID = items.first?.id
+        selectedItemID = newestItemID
+        listScrollPositionID = newestItemID
+        presentedNewestItemID = newestItemID
+        listPresentationGeneration &+= 1
     }
 
     private func rebuildVisibleItems() {

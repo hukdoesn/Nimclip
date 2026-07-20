@@ -272,6 +272,29 @@ final class ClipletRenderingTests: XCTestCase {
         )
     }
 
+    func testClipboardListScrollResetReturnsToTheVisualTop() {
+        let rootView = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 600))
+        let scrollView = NSScrollView(
+            frame: NSRect(x: 0, y: 0, width: 440, height: 435)
+        )
+        let documentView = FlippedTestDocumentView(
+            frame: NSRect(x: 0, y: 0, width: 440, height: 32_000)
+        )
+        scrollView.documentView = documentView
+        rootView.addSubview(scrollView)
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: 20_000))
+
+        XCTAssertGreaterThan(scrollView.contentView.bounds.origin.y, 10_000)
+        XCTAssertTrue(
+            ClipletAppDelegate.scrollClipboardListToBeginning(in: rootView)
+        )
+        XCTAssertEqual(
+            scrollView.contentView.bounds.origin.y,
+            documentView.bounds.minY,
+            accuracy: 0.5
+        )
+    }
+
     private func makeFixture() throws -> RenderingFixture {
         let schema = Schema([ClipboardItem.self, ClipTag.self, AppSettings.self])
         let configuration = ModelConfiguration(
@@ -385,6 +408,10 @@ final class ClipletRenderingTests: XCTestCase {
         return nil
     }
 
+}
+
+private final class FlippedTestDocumentView: NSView {
+    override var isFlipped: Bool { true }
 }
 
 @MainActor

@@ -13,7 +13,6 @@ struct MenuBarRootView: View {
     @State private var noteEditingItem: ClipboardItem?
     @State private var isCollectionMode = false
     @State private var collectedItemIDs: [UUID] = []
-    @State private var listScrollPositionID: UUID?
 
     init(
         viewModel: ClipletViewModel,
@@ -65,6 +64,7 @@ struct MenuBarRootView: View {
         .onDisappear {
             resetTransientInteractionState()
             exitCollectionMode()
+            viewModel.finishDismissing()
         }
         .onChange(of: modifierKeyMonitor.isOptionPressed) { _, isPressed in
             updateOptionState(isPressed)
@@ -333,16 +333,21 @@ struct MenuBarRootView: View {
                 }
                 .scrollIndicators(.automatic)
                 .contentMargins(.vertical, 5, for: .scrollContent)
-                .scrollPosition(id: $listScrollPositionID, anchor: .top)
+                .scrollPosition(id: $viewModel.listScrollPositionID, anchor: .top)
+                .onAppear {
+                    scrollToNewest(using: proxy)
+                }
                 .onChange(of: viewModel.selectionScrollGeneration) { _, _ in
                     guard let itemID = viewModel.selectedItemID else { return }
                     proxy.scrollTo(itemID, anchor: .center)
                 }
+                .onChange(of: viewModel.listPresentationGeneration) { _, _ in
+                    scrollToNewest(using: proxy)
+                }
                 /*
                  Keeping the lazy scroll container alive is important for row
-                 reuse. Replacing its identity on every popover presentation
-                 reconstructs all 500 rows and makes opening and scrolling
-                 visibly choppy.
+                 reuse. A presentation generation scrolls that same container
+                 back to the newest row without reconstructing all 500 rows.
                  */
                 .transaction { transaction in
                     transaction.animation = nil
@@ -549,6 +554,12 @@ struct MenuBarRootView: View {
     private func collectionIndex(for itemID: UUID) -> Int? {
         guard let index = collectedItemIDs.firstIndex(of: itemID) else { return nil }
         return index + 1
+    }
+
+    private func scrollToNewest(using proxy: ScrollViewProxy) {
+        guard let firstItemID = viewModel.items.first?.id else { return }
+        viewModel.listScrollPositionID = firstItemID
+        proxy.scrollTo(firstItemID, anchor: .top)
     }
 
     private func updateHoveredItem(_ itemID: UUID, isHovered: Bool) {
