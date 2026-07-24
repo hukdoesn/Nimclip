@@ -96,12 +96,13 @@ Defaults:
 | Retention period | 2 days | 1–365 days |
 | Image text recognition | Enabled | Can be disabled; existing images can be indexed manually |
 | Launch at login | Disabled | Can be enabled in Settings |
+| Automatic update reminders | Enabled | Can be disabled; manual checks remain available from About |
 
 The history limit applies only to non-favorite clips. When it is exceeded, Nimclip automatically removes the oldest non-favorites and their local image files. Favorites are never removed automatically, so the total item count can exceed the configured limit.
 
 ### Update notifications
 
-Nimclip checks GitHub Releases about four seconds after launch and then every 10 minutes while running. Only a newer stable release is offered, and failed automatic checks do not interrupt your work. You can also check manually from the About page.
+By default, Nimclip checks GitHub Releases about four seconds after launch and then every 10 minutes while running. Only a newer stable release is offered, and failed automatic checks do not interrupt your work. You can disable automatic update reminders under Settings → General; doing so stops background checks while manual checks remain available from the About page.
 
 When an update is available, Nimclip can open its Release page. Automatic reminders for the same version are separated by at least 24 hours. Replacing the app with a newer version does not remove clipboard history stored on your Mac.
 

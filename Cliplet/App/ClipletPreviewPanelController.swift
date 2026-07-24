@@ -31,6 +31,7 @@ final class ClipletPreviewPanelController {
         pendingHideTask = nil
         let screen = sourceWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first
         let visibleFrame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1_440, height: 900)
+        let sourceFrame = sourceWindow?.frame
         let imageSize = cachedImagePixelSize(at: imageURL)
             ?? cachedImagePixelSize(at: thumbnailURL)
         let previewSize = Self.preferredSize(
@@ -39,7 +40,11 @@ final class ClipletPreviewPanelController {
             hasTags: !item.tags.isEmpty,
             visibleFrame: visibleFrame,
             text: item.text,
-            note: item.note
+            note: item.note,
+            maximumWidth: Self.rightSideAvailableWidth(
+                sourceFrame: sourceFrame,
+                visibleFrame: visibleFrame
+            )
         )
 
         let preview = ClipboardItemExpandedPreview(
@@ -72,7 +77,7 @@ final class ClipletPreviewPanelController {
             NSRect(
                 origin: Self.preferredOrigin(
                     previewSize: previewSize,
-                    sourceFrame: sourceWindow?.frame,
+                    sourceFrame: sourceFrame,
                     visibleFrame: visibleFrame
                 ),
                 size: previewSize
@@ -125,9 +130,14 @@ final class ClipletPreviewPanelController {
         hasTags _: Bool,
         visibleFrame: CGRect,
         text: String? = nil,
-        note: String? = nil
+        note: String? = nil,
+        maximumWidth: CGFloat? = nil
     ) -> CGSize {
-        let maxWidth = max(360, min(780, visibleFrame.width - 40))
+        let screenMaximumWidth = max(1, min(780, visibleFrame.width - 40))
+        let maxWidth = max(
+            1,
+            min(screenMaximumWidth, maximumWidth ?? screenMaximumWidth)
+        )
         let maxHeight = max(220, min(680, visibleFrame.height - 40))
 
         guard kind == .image else {
@@ -199,24 +209,28 @@ final class ClipletPreviewPanelController {
         let minimumY = visibleFrame.minY + margin
         let maximumY = visibleFrame.maxY - margin - previewSize.height
 
-        var x = visibleFrame.midX - previewSize.width / 2
+        let rightX = sourceFrame.map { $0.maxX + gap } ?? minimumX
         var y = visibleFrame.midY - previewSize.height / 2
 
         if let sourceFrame {
-            let rightX = sourceFrame.maxX + gap
-            let leftX = sourceFrame.minX - gap - previewSize.width
-            if rightX <= maximumX {
-                x = rightX
-            } else if leftX >= minimumX {
-                x = leftX
-            }
             y = sourceFrame.maxY - previewSize.height
         }
 
-        return CGPoint(
-            x: min(max(x, minimumX), maximumX),
-            y: min(max(y, minimumY), maximumY)
-        )
+        let x = sourceFrame == nil
+            ? min(max(rightX, minimumX), maximumX)
+            : max(rightX, minimumX)
+        return CGPoint(x: x, y: min(max(y, minimumY), maximumY))
+    }
+
+    static func rightSideAvailableWidth(
+        sourceFrame: CGRect?,
+        visibleFrame: CGRect
+    ) -> CGFloat {
+        let margin: CGFloat = 16
+        let gap: CGFloat = 12
+        let originX = sourceFrame.map { $0.maxX + gap }
+            ?? (visibleFrame.minX + margin)
+        return max(1, visibleFrame.maxX - margin - originX)
     }
 
     private func makePanel(size: CGSize) -> NSPanel {

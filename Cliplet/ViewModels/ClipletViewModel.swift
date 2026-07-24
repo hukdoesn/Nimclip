@@ -48,6 +48,7 @@ final class ClipletViewModel {
     var onStatusChanged: ((Bool) -> Void)?
     var onAppearanceChanged: ((NimclipAppearanceMode) -> Void)?
     var onLanguageChanged: ((NimclipLanguage) -> Void)?
+    var onAutomaticUpdateChecksChanged: ((Bool) -> Void)?
 
     private let store: ClipboardStore
     private let monitor: ClipboardMonitor
@@ -174,6 +175,30 @@ final class ClipletViewModel {
                         newValue
                             ? "已开启自动识别图片文字"
                             : "已关闭自动识别图片文字"
+                    )
+                )
+            } catch {
+                showToast(localizedDescription(for: error))
+            }
+        }
+    }
+
+    var automaticUpdateChecksEnabled: Bool {
+        get {
+            _ = revision
+            return store.settings.automaticUpdateChecksEnabled
+        }
+        set {
+            guard newValue != automaticUpdateChecksEnabled else { return }
+            do {
+                try store.updateSettings(automaticUpdateChecksEnabled: newValue)
+                markStateChanged()
+                onAutomaticUpdateChecksChanged?(newValue)
+                showToast(
+                    localized(
+                        newValue
+                            ? "已开启自动更新提醒"
+                            : "已关闭自动更新提醒"
                     )
                 )
             } catch {

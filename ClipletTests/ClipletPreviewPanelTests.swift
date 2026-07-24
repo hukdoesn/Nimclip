@@ -237,24 +237,48 @@ final class ClipletPreviewPanelTests: XCTestCase {
         XCTAssertLessThanOrEqual(withNote.height, 680)
     }
 
-    func testPortraitPreviewAndFallbackOriginStayInsideVisibleFrame() {
+    func testPreviewShrinksToAvailableRightSideWithoutOverlappingSource() {
         let visibleFrame = CGRect(x: 100, y: 80, width: 900, height: 640)
+        let sourceFrame = CGRect(x: 160, y: 160, width: 420, height: 560)
+        let availableWidth = ClipletPreviewPanelController.rightSideAvailableWidth(
+            sourceFrame: sourceFrame,
+            visibleFrame: visibleFrame
+        )
         let size = ClipletPreviewPanelController.preferredSize(
             kind: .image,
-            imageSize: CGSize(width: 900, height: 1_600),
+            imageSize: CGSize(width: 1_920, height: 1_080),
             hasTags: true,
-            visibleFrame: visibleFrame
+            visibleFrame: visibleFrame,
+            maximumWidth: availableWidth
         )
         let origin = ClipletPreviewPanelController.preferredOrigin(
             previewSize: size,
-            sourceFrame: CGRect(x: 420, y: 160, width: 420, height: 560),
+            sourceFrame: sourceFrame,
             visibleFrame: visibleFrame
         )
         let previewFrame = CGRect(origin: origin, size: size)
 
+        XCTAssertEqual(availableWidth, 392, accuracy: 0.5)
+        XCTAssertEqual(size.width, availableWidth, accuracy: 0.5)
+        XCTAssertEqual(origin.x, sourceFrame.maxX + 12, accuracy: 0.5)
+        XCTAssertGreaterThan(previewFrame.minX, sourceFrame.maxX)
         XCTAssertGreaterThanOrEqual(previewFrame.minX, visibleFrame.minX + 16)
         XCTAssertGreaterThanOrEqual(previewFrame.minY, visibleFrame.minY + 16)
         XCTAssertLessThanOrEqual(previewFrame.maxX, visibleFrame.maxX - 16)
         XCTAssertLessThanOrEqual(previewFrame.maxY, visibleFrame.maxY - 16)
+    }
+
+    func testPreviewOriginNeverFallsBackToTheLeftOrCenter() {
+        let visibleFrame = CGRect(x: 0, y: 0, width: 1_440, height: 900)
+        let sourceFrame = CGRect(x: 120, y: 180, width: 440, height: 600)
+        let previewSize = CGSize(width: 1_000, height: 500)
+
+        let origin = ClipletPreviewPanelController.preferredOrigin(
+            previewSize: previewSize,
+            sourceFrame: sourceFrame,
+            visibleFrame: visibleFrame
+        )
+
+        XCTAssertEqual(origin.x, sourceFrame.maxX + 12, accuracy: 0.5)
     }
 }

@@ -455,7 +455,8 @@ final class ClipboardStore: ObservableObject {
         launchAtLogin: Bool? = nil,
         appearanceMode: NimclipAppearanceMode? = nil,
         language: NimclipLanguage? = nil,
-        automaticImageTextRecognition: Bool? = nil
+        automaticImageTextRecognition: Bool? = nil,
+        automaticUpdateChecksEnabled: Bool? = nil
     ) throws {
         let shouldEnforceRetention = historyLimit != nil || retentionDays != nil
 
@@ -489,6 +490,9 @@ final class ClipboardStore: ObservableObject {
         }
         if let automaticImageTextRecognition {
             settings.automaticImageTextRecognition = automaticImageTextRecognition
+        }
+        if let automaticUpdateChecksEnabled {
+            settings.automaticUpdateChecksEnabled = automaticUpdateChecksEnabled
         }
         try saveSettings(enforcingRetention: shouldEnforceRetention)
     }

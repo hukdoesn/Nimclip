@@ -594,6 +594,10 @@ struct ClipboardItemExpandedPreview: View {
         item.presentationKind
     }
 
+    private var enlargedImageURL: URL? {
+        imageURL ?? thumbnailURL
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             previewBar
@@ -703,6 +707,41 @@ struct ClipboardItemExpandedPreview: View {
                     ContentUnavailableView("图片不可用", systemImage: "photo.badge.exclamationmark")
                         .foregroundStyle(.secondary)
                 }
+
+                if enlargedImageURL != nil {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button(action: openImageAtFullSize) {
+                                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .frame(width: 28, height: 28)
+                                    .background(
+                                        .regularMaterial,
+                                        in: RoundedRectangle(
+                                            cornerRadius: 7,
+                                            style: .continuous
+                                        )
+                                    )
+                                    .overlay {
+                                        RoundedRectangle(
+                                            cornerRadius: 7,
+                                            style: .continuous
+                                        )
+                                        .stroke(
+                                            Color.clipletBorder.opacity(0.72),
+                                            lineWidth: 0.5
+                                        )
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .help(language.localized("放大查看"))
+                            .accessibilityLabel(language.localized("放大查看"))
+                        }
+                    }
+                    .padding(12)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -789,6 +828,25 @@ struct ClipboardItemExpandedPreview: View {
 
     private var previewImageTaskID: String {
         "\(imageURL?.path ?? "")|\(thumbnailURL?.path ?? "")|\(maximumPreviewPixelSize)"
+    }
+
+    private func openImageAtFullSize() {
+        guard let enlargedImageURL else { return }
+        let workspace = NSWorkspace.shared
+        guard let previewApplicationURL = workspace.urlForApplication(
+            withBundleIdentifier: "com.apple.Preview"
+        ) else {
+            workspace.open(enlargedImageURL)
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        workspace.open(
+            [enlargedImageURL],
+            withApplicationAt: previewApplicationURL,
+            configuration: configuration
+        )
     }
 
     @MainActor

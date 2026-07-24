@@ -67,6 +67,9 @@ final class ClipletAppDelegate:
             viewModel.onLanguageChanged = { [weak self] language in
                 self?.applyLanguage(language)
             }
+            viewModel.onAutomaticUpdateChecksChanged = { [weak self] isEnabled in
+                self?.configureAutomaticUpdateChecks(isEnabled: isEnabled)
+            }
 
             NotificationCenter.default.addObserver(
                 self,
@@ -80,7 +83,9 @@ final class ClipletAppDelegate:
                 name: NSWorkspace.didActivateApplicationNotification,
                 object: nil
             )
-            scheduleAutomaticUpdateChecks()
+            configureAutomaticUpdateChecks(
+                isEnabled: viewModel.automaticUpdateChecksEnabled
+            )
 
             #if DEBUG
             if ProcessInfo.processInfo.environment["CLIPLET_PREVIEW_WINDOW"] == "1" {
@@ -490,15 +495,28 @@ final class ClipletAppDelegate:
         }
     }
 
+    private func configureAutomaticUpdateChecks(isEnabled: Bool) {
+        automaticUpdateTask?.cancel()
+        automaticUpdateTask = nil
+        guard isEnabled else { return }
+        scheduleAutomaticUpdateChecks()
+    }
+
     private func checkForUpdates(manual: Bool) async {
+        guard manual || viewModel?.automaticUpdateChecksEnabled == true else {
+            return
+        }
         guard !isCheckingForUpdates else { return }
         isCheckingForUpdates = true
         defer { isCheckingForUpdates = false }
 
         do {
             if let update = try await updateChecker.check() {
-                guard manual || shouldShowAutomaticReminder(for: update.version) else {
-                    return
+                if !manual {
+                    guard viewModel?.automaticUpdateChecksEnabled == true,
+                          shouldShowAutomaticReminder(for: update.version) else {
+                        return
+                    }
                 }
                 showUpdateAlert(update)
             } else if manual {

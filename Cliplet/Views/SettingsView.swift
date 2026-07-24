@@ -269,6 +269,18 @@ struct SettingsView: View {
 
             ClipletSettingsDivider()
 
+            ClipletSettingsRow("自动更新提醒", systemImage: "arrow.triangle.2.circlepath") {
+                Toggle(
+                    "自动更新提醒",
+                    isOn: $viewModel.automaticUpdateChecksEnabled
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            }
+
+            ClipletSettingsDivider()
+
             ClipletSettingsRow("历史数据", systemImage: "externaldrive") {
                 Button(role: .destructive) {
                     isShowingClearConfirmation = true

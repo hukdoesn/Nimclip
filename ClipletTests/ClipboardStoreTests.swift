@@ -19,6 +19,7 @@ final class ClipboardStoreTests: XCTestCase {
         )
         XCTAssertFalse(fixture.store.settings.hasExplicitAppearanceSelection)
         XCTAssertTrue(fixture.store.settings.automaticImageTextRecognition)
+        XCTAssertTrue(fixture.store.settings.automaticUpdateChecksEnabled)
 
         let original = try fixture.store.ingestText(
             "Nimclip",
@@ -616,7 +617,8 @@ final class ClipboardStoreTests: XCTestCase {
             retentionDays: 42,
             appearanceMode: .light,
             language: .english,
-            automaticImageTextRecognition: false
+            automaticImageTextRecognition: false,
+            automaticUpdateChecksEnabled: false
         )
         XCTAssertEqual(fixture.store.settings.historyLimit, 123)
         XCTAssertEqual(fixture.store.settings.retentionDays, 42)
@@ -630,6 +632,7 @@ final class ClipboardStoreTests: XCTestCase {
             NimclipLanguage.english.rawValue
         )
         XCTAssertFalse(fixture.store.settings.automaticImageTextRecognition)
+        XCTAssertFalse(fixture.store.settings.automaticUpdateChecksEnabled)
 
         try fixture.store.updateSettings(historyLimit: 1, retentionDays: 999)
         XCTAssertEqual(fixture.store.settings.historyLimit, ClipboardStore.minimumHistoryLimit)
@@ -701,6 +704,37 @@ final class ClipboardStoreTests: XCTestCase {
 
         let reopenedStore = try makeDiskStore(storeURL: storeURL, directory: directory)
         XCTAssertFalse(reopenedStore.settings.automaticImageTextRecognition)
+    }
+
+    func testAutomaticUpdateChecksSettingPersistsWhenStoreIsReopened() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ClipletUpdateSettingTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeURL = directory.appendingPathComponent("update-setting.store")
+        do {
+            let store = try makeDiskStore(storeURL: storeURL, directory: directory)
+            try store.updateSettings(automaticUpdateChecksEnabled: false)
+        }
+
+        let reopenedStore = try makeDiskStore(storeURL: storeURL, directory: directory)
+        XCTAssertFalse(reopenedStore.settings.automaticUpdateChecksEnabled)
+    }
+
+    func testMissingAutomaticUpdateSettingFromEarlierVersionsDefaultsToEnabled() throws {
+        let earlierSettings = AppSettings()
+        earlierSettings.automaticUpdateChecksEnabledValue = nil
+        let fixture = try makeStore(preloadedSettings: earlierSettings)
+        defer { fixture.cleanup() }
+
+        XCTAssertTrue(fixture.store.settings.automaticUpdateChecksEnabled)
     }
 
     func testUntouchedEarlierDefaultsMigrateWithoutOverwritingAUserChoice() throws {

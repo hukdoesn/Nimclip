@@ -79,6 +79,7 @@
 "有备注" = "Has Note";
 "备注" = "Note";
 "原始内容" = "Original Content";
+"放大查看" = "View Full Size";
 "添加备注…" = "Add Note…";
 "编辑备注…" = "Edit Note…";
 "添加备注" = "Add Note";
@@ -159,6 +160,9 @@
 "保留时间" = "Retention Period";
 "天" = "days";
 "登录时启动" = "Launch at Login";
+"自动更新提醒" = "Automatic Update Reminders";
+"已开启自动更新提醒" = "Automatic update reminders enabled";
+"已关闭自动更新提醒" = "Automatic update reminders disabled";
 "历史数据" = "History Data";
 "清空剪贴板历史" = "Clear Clipboard History";
 "直接粘贴" = "Direct Paste";
