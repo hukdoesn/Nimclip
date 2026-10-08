@@ -27,6 +27,7 @@ Nimclip is a free, open-source, native, local-first clipboard history manager fo
 - Favorites plus create, rename, delete, color-code, and filter by tags
 - Preservation of rich-text formatting and images, with optional plain-text copy and paste
 - Ordered multi-item text collection for a single copy or paste
+- Batch deletion of text and images, with select-all for current results and confirmation of clip and favorite counts
 - Image thumbnails, full image previews, and scrollable long-text previews
 - Repeated copies refresh the existing item and move it to the top instead of creating duplicates
 - Customizable global shortcut, history limit, retention period, and launch at login; the oldest non-favorites are deleted automatically at the limit, while favorites do not count toward it
@@ -46,10 +47,13 @@ Nimclip is a free, open-source, native, local-first clipboard history manager fo
 | Preview | Hover over an item and hold <kbd>⌥ Option</kbd> |
 | More actions | Right-click an item to copy, paste as plain text, favorite, tag, open a link, or delete |
 | Delete an item | Select it and press <kbd>Delete</kbd>, or use the context menu |
+| Delete multiple items | Click “Select” at the top, check clips or select all current results, then click “Delete Selected” and confirm; the context menu also offers this mode |
 | Combine items | Enter multi-item mode, select text items in order, then copy or paste |
 | Close the panel | Press <kbd>Esc</kbd> or click outside the panel |
 
 Every time the panel opens, Nimclip selects the first item in the current search and filter results and scrolls the list to the top, keeping the newest available content ready to use.
+
+In selection mode, clicking a clip toggles its checkmark. Changing search or filters, canceling selection, or closing the panel clears the selection. Select All does not include clips copied afterward. Explicitly selected favorites can also be deleted; the confirmation shows their count.
 
 Default and customized global shortcut keys are order-independent. With the default <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd> shortcut, Nimclip opens as soon as all three keys are held, whether V or the modifiers were pressed first. A held chord triggers only once until one of its required keys is released.
 

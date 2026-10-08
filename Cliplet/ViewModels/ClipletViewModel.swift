@@ -15,17 +15,34 @@ final class ClipletViewModel {
         var id: Self { self }
     }
 
+    struct BatchDeletionRequest: Equatable {
+        let itemIDs: Set<UUID>
+        let favoriteCount: Int
+    }
+
     var searchText = "" {
-        didSet { rebuildVisibleItems() }
+        didSet {
+            if searchText != oldValue { selectedDeletionItemIDs.removeAll() }
+            rebuildVisibleItems()
+        }
     }
     var selectedSection: Section = .history {
-        didSet { rebuildVisibleItems() }
+        didSet {
+            if selectedSection != oldValue { selectedDeletionItemIDs.removeAll() }
+            rebuildVisibleItems()
+        }
     }
     var selectedContentFilter: ClipboardContentFilter = .all {
-        didSet { rebuildVisibleItems() }
+        didSet {
+            if selectedContentFilter != oldValue { selectedDeletionItemIDs.removeAll() }
+            rebuildVisibleItems()
+        }
     }
     var selectedTagID: UUID? {
-        didSet { rebuildVisibleItems() }
+        didSet {
+            if selectedTagID != oldValue { selectedDeletionItemIDs.removeAll() }
+            rebuildVisibleItems()
+        }
     }
     var selectedItemID: UUID?
     var listScrollPositionID: UUID?
@@ -41,6 +58,8 @@ final class ClipletViewModel {
     private(set) var imageTextIndexFailureCount = 0
     private(set) var listPresentationGeneration = 0
     private(set) var selectionScrollGeneration = 0
+    private(set) var isBatchDeleteMode = false
+    private(set) var selectedDeletionItemIDs: Set<UUID> = []
 
     var onShowRequested: (() -> Void)?
     var onDismissRequested: (() -> Void)?
@@ -351,6 +370,7 @@ final class ClipletViewModel {
         // Clearing the binding makes the next presentation's newest item a
         // real scroll-position change even when the reusable view is hidden.
         listScrollPositionID = nil
+        endBatchDeletion()
     }
 
     func presentationKind(for item: ClipboardItem) -> ClipboardPresentationKind {
@@ -568,6 +588,72 @@ final class ClipletViewModel {
         }
         if selectedItemID == deletedID {
             selectedItemID = items.first?.id
+        }
+    }
+
+    func beginBatchDeletion(selecting itemID: UUID? = nil) {
+        isBatchDeleteMode = true
+        selectedDeletionItemIDs.removeAll()
+        if let itemID {
+            toggleDeletionSelection(for: itemID)
+        }
+    }
+
+    func endBatchDeletion() {
+        isBatchDeleteMode = false
+        selectedDeletionItemIDs.removeAll()
+    }
+
+    func toggleDeletionSelection(for itemID: UUID) {
+        guard isBatchDeleteMode, items.contains(where: { $0.id == itemID }) else { return }
+        if !selectedDeletionItemIDs.insert(itemID).inserted {
+            selectedDeletionItemIDs.remove(itemID)
+        }
+        selectedItemID = itemID
+    }
+
+    var areAllItemsSelectedForDeletion: Bool {
+        !items.isEmpty && selectedDeletionItemIDs.count == items.count
+    }
+
+    func toggleSelectAllForDeletion() {
+        guard isBatchDeleteMode else { return }
+        if areAllItemsSelectedForDeletion {
+            selectedDeletionItemIDs.removeAll()
+        } else {
+            selectedDeletionItemIDs = Set(items.map(\.id))
+        }
+    }
+
+    func makeBatchDeletionRequest() -> BatchDeletionRequest? {
+        guard isBatchDeleteMode else { return nil }
+        let selectedItems = items.filter { selectedDeletionItemIDs.contains($0.id) }
+        guard !selectedItems.isEmpty else { return nil }
+        return BatchDeletionRequest(
+            itemIDs: Set(selectedItems.map(\.id)),
+            favoriteCount: selectedItems.filter(\.isFavorite).count
+        )
+    }
+
+    @discardableResult
+    func confirmBatchDeletion(_ request: BatchDeletionRequest) -> Bool {
+        guard isBatchDeleteMode else { return false }
+        // Only delete the IDs shown in the confirmation, even if recording
+        // adds new clips while the alert is open. Never include hidden clips.
+        let itemIDs = request.itemIDs
+            .intersection(selectedDeletionItemIDs)
+            .intersection(items.map(\.id))
+        guard !itemIDs.isEmpty else { return false }
+        do {
+            let deletedCount = try store.delete(itemIDs: itemIDs)
+            endBatchDeletion()
+            markStateChanged(rebuildItems: true)
+            ensureValidSelection()
+            showToast(localizedFormat("已删除 %d 条记录", deletedCount))
+            return true
+        } catch {
+            showToast(localizedDescription(for: error))
+            return false
         }
     }
 
@@ -802,6 +888,7 @@ final class ClipletViewModel {
             }
         }
         prewarmRowPresentationCaches(for: nextItems)
+        selectedDeletionItemIDs.formIntersection(nextItems.map(\.id))
         guard !Self.haveSameItemOrder(visibleItems, nextItems) else { return }
         visibleItems = nextItems
     }

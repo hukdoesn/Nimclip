@@ -435,6 +435,62 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: thumbnailURL.path))
     }
 
+    func testBatchDeletionPersistsAndPreservesUnselectedFilesAndTags() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipletBatchDeleteDiskTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let storeURL = directory.appendingPathComponent("batch-delete.store")
+        var keptIDs: Set<UUID> = []
+        var keptImageURLs: [URL] = []
+        var deletedImageURLs: [URL] = []
+
+        do {
+            let store = try makeDiskStore(storeURL: storeURL, directory: directory)
+            let text = try store.ingestText("删除这条文本")
+            let kept = try store.ingestText("保留这条文本")
+            let png = try XCTUnwrap(Data(base64Encoded:
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            ))
+            let image = try store.ingestImage(png)
+            var anotherPNG = png
+            anotherPNG.append(1)
+            let keptImage = try store.ingestImage(anotherPNG)
+            try store.setFavorite(true, for: image)
+            try store.setFavorite(true, for: keptImage)
+            let tag = try store.createTag(name: "保留的标签")
+            try store.assign(tag, to: text)
+            try store.assign(tag, to: keptImage)
+            keptIDs = [kept.id, keptImage.id]
+            keptImageURLs = [
+                try XCTUnwrap(store.imageURL(for: keptImage)),
+                try XCTUnwrap(store.thumbnailURL(for: keptImage))
+            ]
+            deletedImageURLs = [
+                try XCTUnwrap(store.imageURL(for: image)),
+                try XCTUnwrap(store.thumbnailURL(for: image))
+            ]
+            let deletionIDs: Set<UUID> = [text.id, image.id, UUID()]
+
+            XCTAssertEqual(try store.delete(itemIDs: deletionIDs), 2)
+            XCTAssertEqual(try store.delete(itemIDs: deletionIDs), 0)
+            XCTAssertEqual(try store.delete(itemIDs: []), 0)
+            XCTAssertEqual(Set(store.items.map(\.id)), keptIDs)
+            XCTAssertEqual(store.tags.count, 1)
+            XCTAssertEqual(tag.items.map(\.id), [keptImage.id])
+        }
+
+        let reopenedStore = try makeDiskStore(storeURL: storeURL, directory: directory)
+        XCTAssertEqual(Set(reopenedStore.items.map(\.id)), keptIDs)
+        XCTAssertEqual(reopenedStore.tags.map(\.name), ["保留的标签"])
+        for url in keptImageURLs {
+            XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        }
+        for url in deletedImageURLs {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        }
+    }
+
     func testImageDoesNotPersistRedundantPasteboardArchive() throws {
         let fixture = try makeStore()
         defer { fixture.cleanup() }

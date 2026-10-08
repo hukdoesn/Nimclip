@@ -7,6 +7,36 @@ import XCTest
 
 @MainActor
 final class ClipletRenderingTests: XCTestCase {
+    func testBatchDeletionRendersInBothLanguagesAndAppearances() throws {
+        let fixture = try makeFixture()
+        defer {
+            fixture.viewModel.shutdown()
+            try? FileManager.default.removeItem(at: fixture.directory)
+        }
+        try addPreviewContent(to: fixture.store)
+        let image = try fixture.store.ingestImage(try previewImageData(), sourceAppName: "Preview")
+        fixture.viewModel.prepareToShow()
+        let favorite = try XCTUnwrap(fixture.viewModel.items.first(where: \.isFavorite))
+
+        for language in [NimclipLanguage.simplifiedChinese, .english] {
+            fixture.viewModel.language = language
+            for appearanceName in [NSAppearance.Name.aqua, .darkAqua] {
+                fixture.viewModel.appearanceMode = appearanceName == .darkAqua ? .dark : .light
+                fixture.viewModel.dismissToast()
+                fixture.viewModel.beginBatchDeletion(selecting: image.id)
+                fixture.viewModel.toggleDeletionSelection(for: favorite.id)
+
+                let data = try render(
+                    MenuBarRootView(viewModel: fixture.viewModel),
+                    size: NSSize(width: 440, height: 600),
+                    appearanceName: appearanceName,
+                    snapshotName: "batch-delete-\(language.rawValue)-\(appearanceName.rawValue)"
+                )
+                XCTAssertGreaterThan(data.count, 20_000)
+            }
+        }
+    }
+
     func testMenuBarViewRendersInLightAndDarkAppearances() throws {
         let fixture = try makeFixture()
         defer {

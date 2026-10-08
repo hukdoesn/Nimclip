@@ -38,6 +38,21 @@
 "请先选择要拼贴的文本" = "Select the text clips to combine first";
 "已复制 %d 条拼贴内容" = "Copied %d combined clips";
 
+/* Batch deletion */
+"多选" = "Select";
+"多选删除" = "Select Clips to Delete";
+"多选删除…" = "Select Clips to Delete…";
+"退出多选删除" = "Exit Selection";
+"选择记录" = "Select Clip";
+"取消选择" = "Deselect Clip";
+"取消全选" = "Deselect All";
+"全选仅选择当前搜索和筛选结果" = "Select all clips in the current search and filters only";
+"删除所选" = "Delete Selected";
+"删除所选记录？" = "Delete selected clips?";
+"将永久删除所选的 %d 条记录。此操作无法撤销。" = "Permanently delete %d selected clips? This cannot be undone.";
+"将永久删除所选的 %d 条记录，其中包含 %d 条收藏。此操作无法撤销。" = "Permanently delete %d selected clips, including %d favorites? This cannot be undone.";
+"已删除 %d 条记录" = "Deleted %d clips";
+
 /* Recording and status */
 "继续记录" = "Resume Recording";
 "暂停记录" = "Pause Recording";

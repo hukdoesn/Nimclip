@@ -383,9 +383,35 @@ final class ClipboardStore: ObservableObject {
     }
 
     func delete(_ item: ClipboardItem) throws {
-        removeFiles(for: item)
-        modelContext.delete(item)
-        try saveAndRefresh()
+        try delete(itemIDs: [item.id])
+    }
+
+    @discardableResult
+    func delete(itemIDs: Set<UUID>) throws -> Int {
+        let itemsToDelete = items.filter { itemIDs.contains($0.id) }
+        guard !itemsToDelete.isEmpty else { return 0 }
+        // Capture paths before SwiftData invalidates the deleted models.
+        let filePaths = itemsToDelete.flatMap {
+            [$0.imageRelativePath, $0.thumbnailRelativePath].compactMap { $0 }
+        }
+
+        do {
+            for item in itemsToDelete {
+                modelContext.delete(item)
+            }
+            try modelContext.save()
+        } catch {
+            // Keep both the records and their image files if the save fails.
+            modelContext.rollback()
+            throw report(error)
+        }
+
+        for path in filePaths {
+            try? fileManager.removeItem(at: imagesDirectory.appendingPathComponent(path))
+        }
+        try refresh()
+        errorMessage = nil
+        return itemsToDelete.count
     }
 
     func clearHistory() throws {

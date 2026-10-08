@@ -13,6 +13,8 @@ struct MenuBarRootView: View {
     @State private var noteEditingItem: ClipboardItem?
     @State private var isCollectionMode = false
     @State private var collectedItemIDs: [UUID] = []
+    @State private var pendingBatchDeletion: ClipletViewModel.BatchDeletionRequest?
+    @State private var isShowingBatchDeleteConfirmation = false
 
     init(
         viewModel: ClipletViewModel,
@@ -33,7 +35,17 @@ struct MenuBarRootView: View {
             Divider()
             itemList
             Divider()
-            if isCollectionMode {
+            if viewModel.isBatchDeleteMode {
+                ClipboardBatchDeleteFooter(
+                    selectedCount: viewModel.selectedDeletionItemIDs.count,
+                    hasItems: !viewModel.items.isEmpty,
+                    areAllSelected: viewModel.areAllItemsSelectedForDeletion,
+                    language: viewModel.language,
+                    onCancel: viewModel.endBatchDeletion,
+                    onSelectAll: viewModel.toggleSelectAllForDeletion,
+                    onDelete: requestBatchDeletion
+                )
+            } else if isCollectionMode {
                 collectionFooter
             } else {
                 footer
@@ -46,7 +58,7 @@ struct MenuBarRootView: View {
         .overlay(alignment: .bottom) {
             if let message = viewModel.toastMessage {
                 ClipletToast(message: message)
-                    .padding(.bottom, isCollectionMode ? 54 : 43)
+                    .padding(.bottom, isCollectionMode || viewModel.isBatchDeleteMode ? 54 : 43)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -64,7 +76,15 @@ struct MenuBarRootView: View {
         .onDisappear {
             resetTransientInteractionState()
             exitCollectionMode()
+            isShowingBatchDeleteConfirmation = false
+            pendingBatchDeletion = nil
             viewModel.finishDismissing()
+        }
+        .onChange(of: viewModel.isBatchDeleteMode) { _, isActive in
+            if !isActive {
+                isShowingBatchDeleteConfirmation = false
+                pendingBatchDeletion = nil
+            }
         }
         .onChange(of: modifierKeyMonitor.isOptionPressed) { _, isPressed in
             updateOptionState(isPressed)
@@ -88,11 +108,7 @@ struct MenuBarRootView: View {
             return .handled
         }
         .onKeyPress(.return) {
-            if isCollectionMode {
-                viewModel.pasteCombined(collectedItemIDs)
-            } else {
-                viewModel.pasteSelected()
-            }
+            activateSelectedItem()
             return .handled
         }
         .onKeyPress(.delete) {
@@ -100,7 +116,9 @@ struct MenuBarRootView: View {
             return .handled
         }
         .onExitCommand {
-            if isCollectionMode {
+            if viewModel.isBatchDeleteMode {
+                viewModel.endBatchDeletion()
+            } else if isCollectionMode {
                 exitCollectionMode()
             } else {
                 viewModel.dismiss()
@@ -111,6 +129,32 @@ struct MenuBarRootView: View {
         }
         .sheet(item: $noteEditingItem) { item in
             ClipboardNoteEditor(viewModel: viewModel, item: item)
+        }
+        .alert(
+            viewModel.localized("删除所选记录？"),
+            isPresented: $isShowingBatchDeleteConfirmation,
+            presenting: pendingBatchDeletion
+        ) { request in
+            Button(viewModel.localized("删除"), role: .destructive) {
+                viewModel.confirmBatchDeletion(request)
+                pendingBatchDeletion = nil
+            }
+            Button(viewModel.localized("取消"), role: .cancel) {
+                pendingBatchDeletion = nil
+            }
+        } message: { request in
+            Text(
+                request.favoriteCount > 0
+                    ? viewModel.localizedFormat(
+                        "将永久删除所选的 %d 条记录，其中包含 %d 条收藏。此操作无法撤销。",
+                        request.itemIDs.count,
+                        request.favoriteCount
+                    )
+                    : viewModel.localizedFormat(
+                        "将永久删除所选的 %d 条记录。此操作无法撤销。",
+                        request.itemIDs.count
+                    )
+            )
         }
     }
 
@@ -137,6 +181,19 @@ struct MenuBarRootView: View {
                     .foregroundStyle(.secondary)
 
                 Spacer()
+
+                Button(action: toggleBatchDeleteMode) {
+                    Label("多选", systemImage: "checklist")
+                        .font(.system(size: 11, weight: .medium))
+                        .padding(.horizontal, 5)
+                        .frame(height: 26)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ClipletIconButtonStyle(isActive: viewModel.isBatchDeleteMode))
+                .help("多选删除")
+                .accessibilityLabel(
+                    viewModel.localized(viewModel.isBatchDeleteMode ? "退出多选删除" : "多选删除")
+                )
 
                 Button(action: toggleCollectionMode) {
                     Image(systemName: "rectangle.stack.badge.plus")
@@ -182,7 +239,7 @@ struct MenuBarRootView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .focused($isSearchFocused)
-                    .onSubmit(viewModel.pasteSelected)
+                    .onSubmit(activateSelectedItem)
 
                 if !viewModel.searchText.isEmpty {
                     Button {
@@ -229,6 +286,7 @@ struct MenuBarRootView: View {
                 sectionTab(.history, title: "历史")
                 sectionTab(.favorites, title: "收藏")
             }
+            .fixedSize(horizontal: true, vertical: false)
 
             Divider()
                 .frame(height: 18)
@@ -305,6 +363,8 @@ struct MenuBarRootView: View {
                                 isSelected: viewModel.selectedItemID == item.id,
                                 isCollectionMode: isCollectionMode,
                                 collectionIndex: collectionIndex(for: item.id),
+                                isBatchDeleteMode: viewModel.isBatchDeleteMode,
+                                isMarkedForDeletion: viewModel.selectedDeletionItemIDs.contains(item.id),
                                 onHoverChange: { hovering in
                                     updateHoveredItem(item.id, isHovered: hovering)
                                 },
@@ -315,6 +375,10 @@ struct MenuBarRootView: View {
                                 onCopyPlainText: { viewModel.copyAsPlainText(item) },
                                 onOpenLink: { viewModel.openLink(item) },
                                 onToggleCollection: { toggleCollectedItem(item) },
+                                onToggleDeletionSelection: {
+                                    viewModel.toggleDeletionSelection(for: item.id)
+                                },
+                                onBeginBatchDeletion: { beginBatchDeletion(selecting: item.id) },
                                 onToggleFavorite: { viewModel.toggleFavorite(item) },
                                 onEditNote: { beginEditingNote(item) },
                                 onDelete: { viewModel.delete(item) },
@@ -495,12 +559,49 @@ struct MenuBarRootView: View {
     }
 
     private func deleteSelectedItem() {
+        if viewModel.isBatchDeleteMode {
+            requestBatchDeletion()
+            return
+        }
         guard !isCollectionMode else { return }
         guard let selectedItemID = viewModel.selectedItemID,
               let item = viewModel.items.first(where: { $0.id == selectedItemID }) else {
             return
         }
         viewModel.delete(item)
+    }
+
+    private func activateSelectedItem() {
+        if viewModel.isBatchDeleteMode {
+            if let itemID = viewModel.selectedItemID {
+                viewModel.toggleDeletionSelection(for: itemID)
+            }
+        } else if isCollectionMode {
+            viewModel.pasteCombined(collectedItemIDs)
+        } else {
+            viewModel.pasteSelected()
+        }
+    }
+
+    private func toggleBatchDeleteMode() {
+        if viewModel.isBatchDeleteMode {
+            viewModel.endBatchDeletion()
+        } else {
+            beginBatchDeletion()
+        }
+    }
+
+    private func beginBatchDeletion(selecting itemID: UUID? = nil) {
+        resetTransientInteractionState()
+        exitCollectionMode()
+        viewModel.beginBatchDeletion(selecting: itemID)
+    }
+
+    private func requestBatchDeletion() {
+        guard let request = viewModel.makeBatchDeletionRequest() else { return }
+        resetTransientInteractionState()
+        pendingBatchDeletion = request
+        isShowingBatchDeleteConfirmation = true
     }
 
     private func selectTag(_ tagID: UUID?) {
@@ -511,6 +612,7 @@ struct MenuBarRootView: View {
     }
 
     private func toggleCollectionMode() {
+        viewModel.endBatchDeletion()
         withAnimation(.easeOut(duration: 0.16)) {
             if isCollectionMode {
                 exitCollectionMode()
@@ -533,6 +635,7 @@ struct MenuBarRootView: View {
             viewModel.showNotice("多条拼贴目前支持文本记录")
             return
         }
+        viewModel.endBatchDeletion()
         if !isCollectionMode {
             isCollectionMode = true
         }

@@ -13,6 +13,8 @@ struct ClipboardItemRow: View {
     let isSelected: Bool
     let isCollectionMode: Bool
     let collectionIndex: Int?
+    let isBatchDeleteMode: Bool
+    let isMarkedForDeletion: Bool
     let onHoverChange: (Bool) -> Void
     let onActivate: () -> Void
     let onPaste: () -> Void
@@ -21,6 +23,8 @@ struct ClipboardItemRow: View {
     let onCopyPlainText: () -> Void
     let onOpenLink: () -> Void
     let onToggleCollection: () -> Void
+    let onToggleDeletionSelection: () -> Void
+    let onBeginBatchDeletion: () -> Void
     let onToggleFavorite: () -> Void
     let onEditNote: () -> Void
     let onDelete: () -> Void
@@ -102,7 +106,21 @@ struct ClipboardItemRow: View {
                 .foregroundStyle(Color.secondary)
             }
 
-            if isCollectionMode {
+            if isBatchDeleteMode {
+                if item.isFavorite {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(favoriteColor)
+                        .accessibilityLabel("收藏")
+                }
+                Image(systemName: isMarkedForDeletion ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(
+                        isMarkedForDeletion ? Color.clipletSelection : Color.secondary.opacity(0.6)
+                    )
+                    .frame(width: 27, height: 27)
+                    .accessibilityHidden(true)
+            } else if isCollectionMode {
                 ZStack {
                     Circle()
                         .fill(isCollected ? Color.clipletSelection : Color.clear)
@@ -182,7 +200,7 @@ struct ClipboardItemRow: View {
                 .stroke(rowBorder, lineWidth: 1)
         }
         .overlay(alignment: .leading) {
-            if isSelected && !isCollected {
+            if isSelected && !isCollected && !isMarkedForDeletion {
                 Capsule()
                     .fill(Color.clipletSelection)
                     .frame(width: 2.5, height: 30)
@@ -192,13 +210,7 @@ struct ClipboardItemRow: View {
         .padding(.horizontal, 6)
         .opacity(isCollectionMode && item.kind != .text ? 0.44 : 1)
         .contentShape(Rectangle())
-        .onTapGesture {
-            if isCollectionMode {
-                onToggleCollection()
-            } else {
-                onActivate()
-            }
-        }
+        .onTapGesture(perform: activateRow)
         .onHover { hovering in
             isHovered = hovering
             onHoverChange(hovering)
@@ -206,15 +218,46 @@ struct ClipboardItemRow: View {
         .task(id: item.sourceAppBundleIdentifier) {
             await loadSourceAppIcon()
         }
-        .contextMenu { contextMenu }
+        .contextMenu {
+            if isBatchDeleteMode {
+                Button(
+                    language.localized(isMarkedForDeletion ? "取消选择" : "选择记录"),
+                    action: onToggleDeletionSelection
+                )
+            } else {
+                contextMenu
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
-        .accessibilityAddTraits(isSelected || isCollected ? .isSelected : [])
-        .accessibilityAction(named: language.localized("粘贴"), onPaste)
-        .accessibilityAction(
-            named: language.localized(item.isFavorite ? "取消收藏" : "收藏"),
-            onToggleFavorite
+        .accessibilityAddTraits(
+            (isBatchDeleteMode ? isMarkedForDeletion : isSelected || isCollected) ? .isSelected : []
         )
+        .accessibilityAction { activateRow() }
+        .accessibilityActions {
+            if isBatchDeleteMode {
+                Button(
+                    language.localized(isMarkedForDeletion ? "取消选择" : "选择记录"),
+                    action: onToggleDeletionSelection
+                )
+            } else {
+                Button("粘贴", action: onPaste)
+                Button(
+                    language.localized(item.isFavorite ? "取消收藏" : "收藏"),
+                    action: onToggleFavorite
+                )
+            }
+        }
+    }
+
+    private func activateRow() {
+        if isBatchDeleteMode {
+            onToggleDeletionSelection()
+        } else if isCollectionMode {
+            onToggleCollection()
+        } else {
+            onActivate()
+        }
     }
 
     @ViewBuilder
@@ -255,7 +298,7 @@ struct ClipboardItemRow: View {
     }
 
     private var rowBackground: Color {
-        if isCollected {
+        if isCollected || isMarkedForDeletion {
             return Color.clipletSelection.opacity(colorScheme == .dark ? 0.18 : 0.10)
         }
         if isSelected {
@@ -268,7 +311,7 @@ struct ClipboardItemRow: View {
     }
 
     private var rowBorder: Color {
-        if isCollected { return Color.clipletSelection.opacity(0.54) }
+        if isCollected || isMarkedForDeletion { return Color.clipletSelection.opacity(0.54) }
         if isSelected {
             return Color.primary.opacity(colorScheme == .dark ? 0.18 : 0.20)
         }
@@ -342,6 +385,9 @@ struct ClipboardItemRow: View {
         }
 
         Divider()
+        Button(action: onBeginBatchDeletion) {
+            Label("多选删除…", systemImage: "checklist")
+        }
         Button(role: .destructive, action: onDelete) {
             Label("删除", systemImage: "trash")
         }
